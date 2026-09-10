@@ -1,0 +1,1 @@
+Round Robin scheduling allocates a fixed time quantum. The convoy effect occurs in FCFS.

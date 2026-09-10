@@ -1,0 +1,1 @@
+Paging is a memory management scheme that eliminates the need for contiguous physical memory.

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusSense - AI + IoT Smart Study Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <div class="ambient-mesh">
+        <div class="mesh-blob blob-1"></div>
+        <div class="mesh-blob blob-2"></div>
+        <div class="mesh-blob blob-3"></div>
+    </div>
+
+    <nav class="landing-nav">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="brand-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 3v3m0 12v3M3 12h3m12 0h3"></path>
+                    <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+                </svg>
+            </div>
+            <span class="brand-text">FocusSense</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+            <a href="/login" class="nav-link" style="padding: 8px 18px;">Login</a>
+            <a href="/register" class="btn-study btn-study-start" style="padding: 10px 24px; font-size: 14px; text-decoration: none;">Get Started Free</a>
+        </div>
+    </nav>
+
+    <main>
+        <section class="landing-hero-section">
+            <div class="hero-pill-tag">
+                <span class="status-dot"></span>
+                Next-Gen AI + IoT Hardware Assistant
+            </div>
+
+            <h1 class="landing-hero-title">
+                Focus Better.<br>Study Smarter with Ambient Intelligence.
+            </h1>
+
+            <p class="landing-hero-desc">
+                FocusSense utilizes mmWave radar technology, adaptive circadian lighting, and AI focus telemetry to automatically log study sessions, optimize retention, and keep guardians in the loop.
+            </p>
+
+            <div class="landing-cta-group">
+                <a href="/login" class="btn-study btn-study-start" style="text-decoration: none; padding: 16px 36px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Start Studying Now
+                </a>
+                <a href="/register" class="btn-study" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-primary); text-decoration: none;">
+                    Create Free Account
+                </a>
+            </div>
+        </section>
+
+        <!-- Product Preview Features Grid -->
+        <section class="feature-grid-section">
+            <div class="glass-card">
+                <div class="card-highlight-glow"></div>
+                <div style="font-size: 32px; margin-bottom: 16px;">📡</div>
+                <h3 style="font-size: 18px; margin-bottom: 10px;">mmWave Radar Detection</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+                    Hands-free presence detection tracks micro-movements and posture continuity without cameras or intrusive wearables.
+                </p>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-highlight-glow"></div>
+                <div style="font-size: 32px; margin-bottom: 16px;">💡</div>
+                <h3 style="font-size: 18px; margin-bottom: 10px;">Smart Study Light Control</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+                    Circadian-adjusted RGB light dynamically activates when you sit down and gently signals optimal Pomodoro break intervals.
+                </p>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-highlight-glow"></div>
+                <div style="font-size: 32px; margin-bottom: 16px;">🧠</div>
+                <h3 style="font-size: 18px; margin-bottom: 10px;">AI Learning Assistant</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+                    Deep focus analytics compute a true Study Confidence Score and generate active recall practice questions post-session.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast-container"></div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

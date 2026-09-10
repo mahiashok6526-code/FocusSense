@@ -1,0 +1,1 @@
+Deadlock conditions in OS: Mutual Exclusion, Hold and Wait, No Preemption, Circular Wait.

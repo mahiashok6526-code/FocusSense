@@ -1,0 +1,1 @@
+Database Normalization: 1NF removes duplicates, 2NF removes partial dependency, 3NF removes transitive dependency.

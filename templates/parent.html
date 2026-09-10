@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent & Guardian Dashboard - FocusSense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="ambient-mesh">
+        <div class="mesh-blob blob-1"></div>
+        <div class="mesh-blob blob-2"></div>
+        <div class="mesh-blob blob-3"></div>
+    </div>
+
+    <!-- Hidden flash messages for automatic toast rendering -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-data-msg" data-category="{{ category }}" data-message="{{ message }}" style="display:none;"></div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="app-layout">
+
+        <!-- Modern Glass Sidebar -->
+        <aside class="app-sidebar">
+            <a href="/parent" class="sidebar-brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <span class="brand-text">FocusSense</span>
+            </a>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Guardian Control</div>
+                <a href="/parent" class="nav-link active">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                    </svg>
+                    <span>Guardian Monitor</span>
+                </a>
+
+                <a href="/dashboard" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Student Dashboard</span>
+                </a>
+
+                <a href="/coach" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>AI Learning Coach</span>
+                    <span style="font-size: 9px; padding: 2px 6px; background: rgba(6, 182, 212, 0.2); border: 1px solid rgba(6, 182, 212, 0.5); color: #38bdf8; border-radius: 6px; margin-left: auto; text-transform: uppercase; font-weight: 700;">8-Pillar</span>
+                </a>
+
+                <a href="/ai" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a9 9 0 0 1 9 9c0 3.6-2.4 6.6-5.7 7.7-.3.1-.5.4-.5.7v1.6c0 .6-.4 1-1 1h-3.6c-.6 0-1-.4-1-1v-1.6c0-.3-.2-.6-.5-.7C5.4 17.6 3 14.6 3 11a9 9 0 0 1 9-9z"></path>
+                        <line x1="9" y1="21" x2="15" y2="21"></line>
+                    </svg>
+                    <span>FocusSense AI</span>
+                </a>
+
+                <a href="/assessment" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Assessment Center</span>
+                </a>
+
+                <a href="/reports" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span>Full Reports</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile-pill">
+                    <div class="user-avatar" style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);">P</div>
+                    <div class="user-info">
+                        <div class="user-name">Parent Account</div>
+                        <div class="user-status-text">
+                            <span class="status-dot"></span>
+                            <span>Overseeing {{ fullname }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="/logout" class="nav-link" style="color: var(--accent-rose);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>Sign Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Parent Workspace -->
+        <main class="app-main">
+
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>👨 Guardian Telemetry & Oversight</h1>
+                    <p>Live study habit tracking & radar verification for <strong>{{ fullname }}</strong></p>
+                </div>
+
+                <div class="header-actions">
+                    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Parent Hero Status Banner -->
+            <section class="parent-hero-banner">
+                <div>
+                    <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 4px;">Real-Time Presence</div>
+                    <h2 style="font-size: 24px; font-weight: 800;">Desk Status: {{ fullname }}</h2>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    {% if simulation_mode %}
+                    <span class="telemetry-tag simulation-badge">🛠️ SIMULATION MODE</span>
+                    {% endif %}
+                    <div id="parentStatusBadge" class="parent-status-badge {% if status == 'PRESENT' %}present{% else %}absent{% endif %}">
+                        <span class="status-dot" style="background: currentColor;"></span>
+                        <span id="parentStatusText">STUDENT IS {{ status }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4-Card Stats Grid -->
+            <section class="stats-grid">
+                
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Today's Completed Study</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-cyan);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value">{{ today }}</div>
+                    <div class="stat-meta"><span>Logged today</span></div>
+                </div>
+
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Completed Today</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-blue);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value">{{ today_sessions_count }} <span style="font-size: 15px; color: var(--text-muted);">sessions</span></div>
+                    <div class="stat-meta"><span>Total all-time: {{ total_sessions }}</span></div>
+                </div>
+
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Latest Focus Score</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-emerald);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value">
+                        {% if latest_focus_score and latest_focus_score > 0 %}
+                            {{ latest_focus_score }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="stat-meta">
+                        <span class="trend-up">★ {{ latest_focus_label }}</span>
+                        <span>radar verified</span>
+                    </div>
+                </div>
+
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Daily Goal Adherence</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-purple);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value">{{ progress }}%</div>
+                    <div class="stat-meta"><span>Target: {{ daily_goal }} hrs</span></div>
+                    <div class="progress-container">
+                        <div class="progress-fill" style="width: {{ progress }}%;"></div>
+                    </div>
+                </div>
+
+            </section>
+
+            {% if parent_fi and parent_fi.interpretation %}
+            <!-- Parent Focus Assessment Callout -->
+            <section class="glass-card" style="margin-bottom: 20px; padding: 16px 20px; border-left: 3px solid var(--accent-emerald);">
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 20px; line-height: 1;">👨‍🏫</span>
+                    <div>
+                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">
+                            Latest Session Focus Assessment: {{ parent_fi.label }} ({{ parent_fi.score }}%)
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5;">
+                            {{ parent_fi.interpretation }}
+                        </p>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- 7-Day Consistency Chart for Parent -->
+            <section class="glass-card chart-card" style="margin-top: 10px;">
+                <div class="card-highlight-glow"></div>
+                <div class="chart-header">
+                    <div class="chart-title">7-Day Study Regularity (Minutes / Day)</div>
+                    <span class="telemetry-tag">Guardian Oversight</span>
+                </div>
+                <div class="chart-canvas-wrapper" style="min-height: 240px;">
+                    <canvas id="parentWeeklyChart"></canvas>
+                </div>
+            </section>
+
+
+        </main>
+
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <script>
+        window.addEventListener("DOMContentLoaded", () => {
+            const ctx = document.getElementById('parentWeeklyChart');
+            if (!ctx) return;
+
+            const labels = {{ weekly_labels|tojson if weekly_labels else ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']|tojson }};
+            const dataValues = {{ weekly_values|tojson if weekly_values else [0, 0, 0, 0, 0, 0, 0]|tojson }};
+
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            const textColor = isDark ? '#94a3b8' : '#475569';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Study Minutes',
+                        data: dataValues,
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: '#10b981',
+                        borderWidth: 1.5,
+                        borderRadius: 8,
+                        hoverBackgroundColor: 'rgba(16, 185, 129, 0.85)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#10b981',
+                            borderColor: 'rgba(16, 185, 129, 0.3)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y} mins focused`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: textColor, font: { family: 'Inter', size: 12 } }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, font: { family: 'Inter', size: 12 }, precision: 0 }
+                        }
+                    }
+                }
+            });
+            // Live presence sync for Guardian monitor
+            function syncParentStatus() {
+                fetch("/status")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) return;
+                        const badge = document.getElementById("parentStatusBadge");
+                        const text = document.getElementById("parentStatusText");
+                        if (badge && text) {
+                            if (data.radar === "PRESENT") {
+                                badge.className = "parent-status-badge present";
+                                text.innerHTML = "STUDENT IS PRESENT";
+                            } else {
+                                badge.className = "parent-status-badge absent";
+                                text.innerHTML = "STUDENT IS ABSENT";
+                            }
+                        }
+                    })
+                    .catch(err => console.error("Parent sync error:", err));
+            }
+
+            setInterval(syncParentStatus, 3000);
+        });
+    </script>
+</body>
+
+</html>

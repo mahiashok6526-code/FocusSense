@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Goals - FocusSense</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <div class="ambient-mesh">
+        <div class="mesh-blob blob-1"></div>
+        <div class="mesh-blob blob-2"></div>
+        <div class="mesh-blob blob-3"></div>
+    </div>
+
+    <!-- Hidden flash messages for automatic toast rendering -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-data-msg" data-category="{{ category }}" data-message="{{ message }}" style="display:none;"></div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="app-layout">
+
+        <!-- Modern Glass Sidebar -->
+        <aside class="app-sidebar">
+            <a href="/dashboard" class="sidebar-brand">
+                <div class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 3v3m0 12v3M3 12h3m12 0h3"></path>
+                        <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+                    </svg>
+                </div>
+                <span class="brand-text">FocusSense</span>
+            </a>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Workspace</div>
+                <a href="/dashboard" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="/coach" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>AI Learning Coach</span>
+                    <span style="font-size: 9px; padding: 2px 6px; background: rgba(6, 182, 212, 0.2); border: 1px solid rgba(6, 182, 212, 0.5); color: #38bdf8; border-radius: 6px; margin-left: auto; text-transform: uppercase; font-weight: 700;">8-Pillar</span>
+                </a>
+
+                <a href="/ai" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a9 9 0 0 1 9 9c0 3.6-2.4 6.6-5.7 7.7-.3.1-.5.4-.5.7v1.6c0 .6-.4 1-1 1h-3.6c-.6 0-1-.4-1-1v-1.6c0-.3-.2-.6-.5-.7C5.4 17.6 3 14.6 3 11a9 9 0 0 1 9-9z"></path>
+                        <line x1="9" y1="21" x2="15" y2="21"></line>
+                    </svg>
+                    <span>FocusSense AI</span>
+                </a>
+
+                <a href="/assessment" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Assessment Center</span>
+                </a>
+
+                <a href="/reports" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span>Reports & Analytics</span>
+                </a>
+
+                <a href="/goals" class="nav-link active">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="6"></circle>
+                        <circle cx="12" cy="12" r="2"></circle>
+                    </svg>
+                    <span>Study Goals</span>
+                </a>
+
+                <a href="/settings" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+
+                <div class="nav-section-title">Monitoring</div>
+                <a href="/parent" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Parent View</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile-pill">
+                    <div class="user-avatar">{{ fullname[:1] if fullname else 'S' }}</div>
+                    <div class="user-info">
+                        <div class="user-name">{{ fullname }}</div>
+                        <div class="user-status-text">
+                            <span class="status-dot"></span>
+                            <span>Student Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="/logout" class="nav-link" style="color: var(--accent-rose);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>Sign Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Goals Workspace -->
+        <main class="app-main">
+
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>🎯 Study Goals & Milestones</h1>
+                    <p>Configure daily target hours and track habit progression for {{ fullname }}</p>
+                </div>
+
+                <div class="header-actions">
+                    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="goals-layout-grid">
+                
+                <!-- Goal Config Form Card -->
+                <div class="glass-card">
+                    <div class="card-highlight-glow"></div>
+                    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Set Daily Target</h2>
+                    <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 24px;">
+                        Adjust your daily focused study hours. The radar system will measure your presence against this baseline.
+                    </p>
+
+                    <form method="POST" action="/goals">
+                        <div class="goal-form-group">
+                            <label for="daily_goal">Daily Study Hours (1 - 24 hrs)</label>
+                            <input type="number" id="daily_goal" name="daily_goal" class="modern-input" value="{{ daily_goal }}" min="1" max="24" required>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div style="margin-bottom: 24px;">
+                            <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">Quick Presets:</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button type="button" class="btn-study" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary);" onclick="document.getElementById('daily_goal').value = 1">1 Hour</button>
+                                <button type="button" class="btn-study" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary);" onclick="document.getElementById('daily_goal').value = 2">2 Hours</button>
+                                <button type="button" class="btn-study" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary);" onclick="document.getElementById('daily_goal').value = 3">3 Hours</button>
+                                <button type="button" class="btn-study" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary);" onclick="document.getElementById('daily_goal').value = 4">4 Hours</button>
+                            </div>
+                        </div>
+
+                        <!-- FocusSense Recall Engine: Spaced Delay Config -->
+                        <div class="goal-form-group" style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 20px; margin-top: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <span style="font-size: 16px;">🧠</span>
+                                <label for="recall_delay_minutes" style="font-weight: 700; color: #f8fafc; margin: 0;">Delayed Recall Delay (Minutes)</label>
+                            </div>
+                            <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 12px; line-height: 1.4;">
+                                How long after ending a study session before FocusSense creates your active recall test. (0 = Immediate post-session testing).
+                            </p>
+                            <input type="number" id="recall_delay_minutes" name="recall_delay_minutes" class="modern-input" value="{{ recall_delay_minutes }}" min="0" max="10080" required>
+                            
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                                <button type="button" class="btn-study" style="padding: 6px 12px; font-size: 12px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); color: #c084fc;" onclick="document.getElementById('recall_delay_minutes').value = 0">Instant (0m)</button>
+                                <button type="button" class="btn-study" style="padding: 6px 12px; font-size: 12px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); color: #c084fc;" onclick="document.getElementById('recall_delay_minutes').value = 10">10 Mins (Default)</button>
+                                <button type="button" class="btn-study" style="padding: 6px 12px; font-size: 12px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); color: #c084fc;" onclick="document.getElementById('recall_delay_minutes').value = 60">1 Hour</button>
+                                <button type="button" class="btn-study" style="padding: 6px 12px; font-size: 12px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); color: #c084fc;" onclick="document.getElementById('recall_delay_minutes').value = 1440">24 Hours</button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-study btn-study-start" style="width: 100%; justify-content: center; margin-top: 24px;">
+                            Save Goal & Recall Settings
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Goal Overview & Projection Card -->
+                <div class="glass-card">
+                    <div class="card-highlight-glow"></div>
+                    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Current Goal Metric</h2>
+                    <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                        Calculated target and weekly capacity projection.
+                    </p>
+
+                    <div class="goal-preview-box">
+                        <div class="goal-number-huge">{{ daily_goal }}</div>
+                        <div style="font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-top: 4px;">Hours per Day Target</div>
+                        <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Equivalent to {{ daily_goal * 7 }} hours per week</div>
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                            <span>Today's Progress</span>
+                            <span style="color: var(--accent-cyan);">{{ progress }}% Complete</span>
+                        </div>
+                        <div class="progress-container" style="height: 12px;">
+                            <div class="progress-fill" style="width: {{ progress }}%;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+                            <span>Logged: {{ today_study }}</span>
+                            <span>Target: {{ daily_goal }} hrs</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

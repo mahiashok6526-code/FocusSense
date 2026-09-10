@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusSense - Student Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <canvas id="ambientCanvas"></canvas>
+
+    <div class="ambient-mesh">
+        <div class="mesh-blob blob-1"></div>
+        <div class="mesh-blob blob-2"></div>
+        <div class="mesh-blob blob-3"></div>
+    </div>
+
+    <!-- Hidden flash messages for automatic toast rendering -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-data-msg" data-category="{{ category }}" data-message="{{ message }}" style="display:none;"></div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="app-layout">
+
+        <!-- Modern Glass Sidebar -->
+        <aside class="app-sidebar">
+            <a href="/dashboard" class="sidebar-brand">
+                <div class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 3v3m0 12v3M3 12h3m12 0h3"></path>
+                        <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+                    </svg>
+                </div>
+                <span class="brand-text">FocusSense</span>
+            </a>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Workspace</div>
+                <a href="/dashboard" class="nav-link active">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="/coach" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>AI Learning Coach</span>
+                    <span style="font-size: 9px; padding: 2px 6px; background: rgba(6, 182, 212, 0.2); border: 1px solid rgba(6, 182, 212, 0.5); color: #38bdf8; border-radius: 6px; margin-left: auto; text-transform: uppercase; font-weight: 700;">8-Pillar</span>
+                </a>
+
+                <a href="/ai" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a9 9 0 0 1 9 9c0 3.6-2.4 6.6-5.7 7.7-.3.1-.5.4-.5.7v1.6c0 .6-.4 1-1 1h-3.6c-.6 0-1-.4-1-1v-1.6c0-.3-.2-.6-.5-.7C5.4 17.6 3 14.6 3 11a9 9 0 0 1 9-9z"></path>
+                        <line x1="9" y1="21" x2="15" y2="21"></line>
+                    </svg>
+                    <span>FocusSense AI</span>
+                </a>
+
+                <a href="/assessment" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Assessment Center</span>
+                </a>
+
+                <a href="/reports" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span>Reports & Analytics</span>
+                </a>
+
+                <a href="/goals" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="6"></circle>
+                        <circle cx="12" cy="12" r="2"></circle>
+                    </svg>
+                    <span>Study Goals</span>
+                </a>
+
+                <a href="/settings" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+
+                <div class="nav-section-title">Monitoring</div>
+                <a href="/parent" class="nav-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Parent View</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile-pill">
+                    <div class="user-avatar">{{ fullname[:1] if fullname else 'S' }}</div>
+                    <div class="user-info">
+                        <div class="user-name">{{ fullname }}</div>
+                        <div class="user-status-text">
+                            <span class="status-dot"></span>
+                            <span>Student Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="/logout" class="nav-link" style="color: var(--accent-rose);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>Sign Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Workspace -->
+        <main class="app-main">
+
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>Welcome Back, {{ fullname }} 👋</h1>
+                    <p>FocusSense AI + IoT Hardware Assistant • Desk Presence Active</p>
+                </div>
+
+                <div class="header-actions">
+                    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- FocusSense Recall Engine: Delayed Recall Notification Banner -->
+            <section id="recallAlertBanner" class="glass-card recall-alert-card" style="margin-bottom: 20px; padding: 16px 20px; display: {% if due_recall_task %}flex{% else %}none{% endif %}; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(6, 182, 212, 0.08)); border: 1px solid rgba(139, 92, 246, 0.35); border-left: 4px solid var(--accent-purple);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(139, 92, 246, 0.2); display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                        <span>🧠</span>
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <strong id="recallBannerTitle" style="font-size: 14.5px; color: #f8fafc;">
+                                {% if due_recall_task and due_recall_task.status == 'READY' %}Delayed Recall Test Ready{% else %}Delayed Recall Scheduled{% endif %}
+                            </strong>
+                            <span id="recallBannerBadge" class="telemetry-tag" style="background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); font-size: 11px;">
+                                {% if due_recall_task and due_recall_task.status == 'READY' %}Ready for Testing{% else %}Active Recall{% endif %}
+                            </span>
+                        </div>
+                        <p id="recallBannerText" style="font-size: 13px; color: var(--text-secondary); margin: 3px 0 0 0;">
+                            {% if due_recall_task %}
+                                Verify retention for <strong style="color: var(--accent-cyan);" id="recallBannerTopic">{{ due_recall_task.topic }}</strong>. Active recall cements long-term memory.
+                            {% else %}
+                                Spaced recall evaluation scheduled after your recent study session.
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" id="btnOpenRecallTest" class="btn-study btn-study-start" onclick="openRecallTestModal({{ due_recall_task.id if due_recall_task else 'null' }})" style="padding: 9px 18px; font-size: 13px; background: linear-gradient(135deg, #8b5cf6, #06b6d4); border: none; cursor: pointer;">
+                        <span>🧠 Start Recall Test</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Hero Section: Study Timer & Live Radar Sweep -->
+            <section class="hero-dashboard-grid">
+                
+                <!-- Main Timer Hero Card -->
+                <div class="glass-card timer-hero-card">
+                    <div class="card-highlight-glow"></div>
+
+                    <div class="timer-header">
+                        <div class="timer-mode-badge" id="timerBadge">
+                            <span class="pulse-circle"></span>
+                            <span id="timerBadgeText">STANDBY MODE</span>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12px; color: var(--text-muted);">Smart Light:</span>
+                            <span id="rgbStatusPill" class="telemetry-tag" style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">OFF</span>
+                        </div>
+                    </div>
+
+                    <div class="timer-display-center">
+                        <div class="digital-timer" id="studyTimer">00:00:00</div>
+                        <div class="timer-subtext" id="timerSubtext">Press Start Study or sit at your desk to activate automated session logging</div>
+                    </div>
+
+                    <!-- Study Topic Input Bar (Phase 1) -->
+                    <div class="topic-input-container" id="topicInputContainer">
+                        <div class="topic-input-wrapper">
+                            <span class="topic-icon">🎯</span>
+                            <input 
+                                type="text" 
+                                id="studyTopicInput" 
+                                class="study-topic-input" 
+                                placeholder="Enter Study Topic (e.g. Operating Systems - Process Scheduling)" 
+                                value="{{ current_study_topic }}"
+                                list="recentTopicsList"
+                                autocomplete="off"
+                                {% if is_session_active %}disabled{% endif %}
+                            />
+                            <datalist id="recentTopicsList">
+                                {% for t in recent_topics %}
+                                    <option value="{{ t }}"></option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="topic-active-pill" id="topicActivePill" style="display: {% if is_session_active and current_study_topic %}inline-flex{% else %}none{% endif %};">
+                            <span class="topic-pulse-dot"></span>
+                            <span id="topicActiveText">Topic: {{ current_study_topic }}</span>
+                        </div>
+                    </div>
+
+                    <div class="timer-actions">
+                        <button id="btnStart" class="btn-study btn-study-start" onclick="startStudy()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            Start Study
+                        </button>
+
+                        <button id="btnStop" class="btn-study btn-study-stop" onclick="stopStudy()" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <rect x="6" y="6" width="12" height="12"></rect>
+                            </svg>
+                            Stop Session
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Animated Radar Visualizer Card -->
+                <div class="glass-card radar-card">
+                    <div class="card-highlight-glow"></div>
+
+                    <div class="radar-header">
+                        <div class="radar-title">
+                            <span>📡 24GHz mmWave Radar</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="telemetry-tag simulation-badge" id="simModeBadge">🛠️ SIMULATION MODE</span>
+                            <span class="telemetry-tag" id="radarSignalTag">Scanning Area</span>
+                        </div>
+                    </div>
+
+                    <!-- Circular Radar Screen -->
+                    <div class="radar-screen">
+                        <div class="radar-ring ring-1"></div>
+                        <div class="radar-ring ring-2"></div>
+                        <div class="radar-ring ring-3"></div>
+                        <div class="radar-crosshair-h"></div>
+                        <div class="radar-crosshair-v"></div>
+                        
+                        <!-- Rotating Sweep Beam -->
+                        <div class="radar-sweep"></div>
+
+                        <!-- Target Presence Blip -->
+                        <div class="radar-target-blip" id="radarBlip"></div>
+                    </div>
+
+                    <div class="radar-status-pill">
+                        <span class="status-label">Detection Status:</span>
+                        <span class="status-value absent" id="radarStatusText">ABSENT</span>
+                    </div>
+
+                    <!-- Interactive Simulation Controls -->
+                    <div class="simulation-controls">
+                        <div class="sim-control-header">
+                            <span class="sim-control-title">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                </svg>
+                                Simulated Presence
+                            </span>
+                            <span class="sim-state-text" id="simStateIndicator">State: ABSENT</span>
+                        </div>
+                        <div class="sim-btn-group">
+                            <button type="button" id="btnSimPresent" class="btn-sim btn-sim-present" onclick="setSimulatedPresence(true)" title="Simulate student present at desk">
+                                <span class="sim-dot"></span>
+                                <span>PRESENT</span>
+                            </button>
+                            <button type="button" id="btnSimAbsent" class="btn-sim btn-sim-absent active" onclick="setSimulatedPresence(false)" title="Simulate student away from desk">
+                                <span class="sim-dot"></span>
+                                <span>ABSENT</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- 4-Card Stats Grid -->
+            <section class="stats-grid">
+                
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Today's Study</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-cyan);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="todayStudyValue">{{ today_study }}</div>
+                    <div class="stat-meta">
+                        <span class="trend-up">● Active Today</span>
+                        <span>across all sessions</span>
+                    </div>
+                </div>
+
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Study Streak</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-amber);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value">{{ streak }} <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);">Days</span></div>
+                    <div class="stat-meta">
+                        <span style="color: var(--accent-amber); font-weight: 600;">🔥 Consistency</span>
+                        <span>daily rhythm</span>
+                    </div>
+                </div>
+
+                <div class="glass-card stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Daily Goal Progress</span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-purple);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value">{{ progress }}%</div>
+                    <div class="stat-meta">
+                        <span>Target: <strong>{{ daily_goal }} hrs</strong></span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-fill" style="width: {{ progress }}%;"></div>
+                    </div>
+                </div>
+
+                    <div class="glass-card stat-card" id="focusScoreCard">
+                        <span id="learningScoreCard" style="display:none;">Learning Verification</span>
+                    <div class="stat-header">
+                        <span class="stat-title" id="focusScoreCardTitle">
+                            {% if has_scored_session %}Physical Focus{% else %}Focus Score{% endif %}
+                        </span>
+                        <div class="stat-icon-wrapper" style="color: var(--accent-emerald);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="stat-value" id="focusScoreValue">
+                        {% if has_scored_session %}
+                            {{ latest_session_score }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="stat-meta" id="focusScoreMeta">
+                        {% if has_scored_session %}
+                            <span class="trend-up">★ {{ latest_session_label }}</span>
+                            <span>Radar In-Seat</span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">● No Score Yet</span>
+                            <span>Start a session</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ========================================================= -->
+            <!-- FocusSense Personal Learning Coach 8-Pillar Summary Card   -->
+            <!-- ========================================================= -->
+            <section class="glass-card" style="margin-bottom: 24px; padding: 22px 26px; background: linear-gradient(135deg, rgba(13, 22, 45, 0.88), rgba(8, 14, 28, 0.95)); border: 1px solid rgba(6, 182, 212, 0.3); border-left: 4px solid var(--accent-cyan); position: relative; overflow: hidden;">
+                <div class="card-highlight-glow"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.25)); border: 1px solid rgba(6, 182, 212, 0.5); display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                            <span>🎯</span>
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: #f8fafc; letter-spacing: 0.3px;">PERSONAL LEARNING COACH</h3>
+                                <span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); text-transform: uppercase;">
+                                    8-Pillar Synthesis Active
+                                </span>
+                            </div>
+                            <p style="font-size: 12.5px; color: var(--text-secondary); margin: 3px 0 0 0;">
+                                Unified intelligence across Radar Presence, Quiz Accuracy, Ebbinghaus Decay, and Adaptive Learning.
+                            </p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="text-align: right;">
+                            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Coaching Health</div>
+                            <div style="font-size: 18px; font-weight: 800; color: #38bdf8; font-family: 'Space Grotesk', sans-serif;">
+                                {{ coach_telemetry.coach_health_score }}/100
+                            </div>
+                        </div>
+                        <a href="/coach" class="btn-study btn-study-start" style="padding: 9px 18px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                            <span>Open Coach Hub</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 4 Core Superpowers Quick Snapshot -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px;">
+                    <a href="/coach" style="text-decoration: none; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 12px 14px; display: block; transition: border-color 0.2s ease;">
+                        <div style="font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 4px;">🎯 What To Study Next</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {% if coach_next and coach_next.primary_recommendation %}
+                                {{ coach_next.primary_recommendation.title }}
+                            {% else %}
+                                Start first study session
+                            {% endif %}
+                        </div>
+                    </a>
+                    <a href="/coach" style="text-decoration: none; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 12px 14px; display: block;">
+                        <div style="font-size: 11px; font-weight: 700; color: #f43f5e; text-transform: uppercase; margin-bottom: 4px;">🔍 What Am I Weak At</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">
+                            {{ coach_telemetry.pillars.knowledge_retention.weak_count }} weak topic(s) flagged
+                        </div>
+                    </a>
+                    <a href="/coach" style="text-decoration: none; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 12px 14px; display: block;">
+                        <div style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-bottom: 4px;">⏳ When To Revise</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">
+                            Ebbinghaus decay active
+                        </div>
+                    </a>
+                    <a href="/coach" style="text-decoration: none; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 12px 14px; display: block;">
+                        <div style="font-size: 11px; font-weight: 700; color: #10b981; text-transform: uppercase; margin-bottom: 4px;">📈 How Am I Improving</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #f8fafc;">
+                            {{ coach_telemetry.cognitive_efficiency }} cognitive eff.
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- ========================================================= -->
+            <!-- FocusSense AI Shortcut Card                                -->
+            <!-- ========================================================= -->
+            <section class="glass-card" style="margin-bottom: 24px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08)); border: 1px solid rgba(6, 182, 212, 0.25);">
+
+                <div class="card-highlight-glow"></div>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #06b6d4, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);">
+                        <span>🧠</span>
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3 style="font-size: 16px; font-weight: 700; margin: 0; letter-spacing: 0.3px;">FOCUSSENSE AI</h3>
+                            <span class="ai-brand-badge" style="font-size: 10px; padding: 2px 7px; border-radius: 6px; background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.35);">Personal Study Companion</span>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin: 3px 0 0 0;">
+                            Continue learning, ask doubts, explore analogies, and summarize key concepts in your dedicated AI workspace.
+                        </p>
+                    </div>
+                </div>
+
+                <a href="/ai" class="btn-study btn-study-start" style="text-decoration: none; padding: 10px 22px; font-size: 13.5px; display: inline-flex; align-items: center; gap: 8px;">
+                    <span>Open FocusSense AI →</span>
+                </a>
+            </section>
+
+            <!-- Focus Intelligence Explainable Breakdown Section -->
+            <section class="glass-card fi-breakdown-card" id="fiBreakdownCard" style="margin-bottom: 24px;">
+                <div class="card-highlight-glow"></div>
+                <div class="fi-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="fi-spark-icon" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-emerald);">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 2v4m0 12v4M2 12h4m12 0h4m-4.93-4.93 2.83-2.83m-13.8 13.8 2.83-2.83m0-8.14L4.93 4.93m13.8 13.8-2.83-2.83"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 16px; font-weight: 700; margin: 0;">Focus Intelligence Telemetry</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" id="fiSubtitle">
+                                {% if has_scored_session %}Explainable factor breakdown from latest completed session{% else %}Desk presence and distraction telemetry engine{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <span class="telemetry-tag" id="fiHeaderBadge" style="background: {% if has_scored_session %}rgba(16, 185, 129, 0.1){% else %}rgba(255,255,255,0.05){% endif %}; color: {% if has_scored_session %}var(--accent-emerald){% else %}var(--text-muted){% endif %}; border: 1px solid {% if has_scored_session %}rgba(16, 185, 129, 0.3){% else %}var(--border-color){% endif %};">
+                        {% if has_scored_session %}Latest Session: {{ last_fi.label }}{% else %}No Session Score Available{% endif %}
+                    </span>
+                </div>
+
+                <div id="fiFactorsContainer">
+                    {% if last_fi %}
+                    <div class="fi-factors-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                        <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                <span>🪑 Desk Presence</span>
+                                <strong id="fiPresenceVal" style="color: var(--accent-cyan);">{{ last_fi.presence_pct }}%</strong>
+                            </div>
+                            <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                <div id="fiPresenceFill" class="progress-fill" style="width: {{ last_fi.presence_pct }}%; background: linear-gradient(90deg, #06b6d4, #10b981);"></div>
+                            </div>
+                        </div>
+
+                        <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                <span>🎯 Session Completion</span>
+                                <strong id="fiCompletionVal" style="color: var(--accent-purple);">{{ last_fi.completion_pct }}%</strong>
+                            </div>
+                            <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                <div id="fiCompletionFill" class="progress-fill" style="width: {{ last_fi.completion_pct }}%; background: linear-gradient(90deg, #8b5cf6, #ec4899);"></div>
+                            </div>
+                        </div>
+
+                        <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                <span>🛡️ Distraction Control</span>
+                                <strong id="fiDistractionVal" style="color: var(--accent-emerald);">{{ last_fi.distraction_control_pct }}%</strong>
+                            </div>
+                            <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                <div id="fiDistractionFill" class="progress-fill" style="width: {{ last_fi.distraction_control_pct }}%; background: linear-gradient(90deg, #10b981, #06b6d4);"></div>
+                            </div>
+                        </div>
+
+                        <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                <span>⏱️ Duration Rating</span>
+                                <strong id="fiDurationVal" style="color: var(--accent-amber);">{{ last_fi.duration_rating_pct }}%</strong>
+                            </div>
+                            <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                <div id="fiDurationFill" class="progress-fill" style="width: {{ last_fi.duration_rating_pct }}%; background: linear-gradient(90deg, #f59e0b, #10b981);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="fiExplanationBox" class="fi-explanation-box" style="background: rgba(16, 185, 129, 0.06); border-left: 3px solid var(--accent-emerald); padding: 12px 16px; border-radius: 8px; font-size: 13px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 10px;">
+                        <span style="font-size: 16px; line-height: 1.2;">💡</span>
+                        <div id="fiExplanationText">
+                            <strong>Why this score:</strong> {{ last_fi.interpretation }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div id="fiEmptyPlaceholder" style="text-align: center; padding: 24px 16px; color: var(--text-muted); font-size: 13px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); border-radius: 12px;">
+                        <div style="font-size: 24px; margin-bottom: 6px;">📊</div>
+                        <div style="font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">No Session Score Available Yet</div>
+                        <div>Start your first study session above to record radar presence and compute Explainable Focus Intelligence telemetry.</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Unified Focus Intelligence & Adaptive Learning Loop Section -->
+            <section class="glass-card fi-breakdown-card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(139, 92, 246, 0.05)); border: 1px solid rgba(139, 92, 246, 0.28);">
+                <div class="card-highlight-glow"></div>
+                <div class="fi-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-purple); font-size: 18px;">
+                            🏛️
+                        </div>
+                        <div>
+                            <h3 style="font-size: 16.5px; font-weight: 700; margin: 0;">Three-Pillar Learning Intelligence & Unified Adaptive Loop</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">
+                                Synthesizes Desk Presence, AI Engagement, Quiz Performance & Knowledge Retention
+                            </p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        {% if unified_profile and unified_profile.latest_unified_score %}
+                        <span class="telemetry-tag" style="background: {% if unified_profile.latest_score_label == 'Passive Study Alert' %}rgba(244, 63, 94, 0.15){% elif unified_profile.latest_unified_score >= 85 %}rgba(16, 185, 129, 0.15){% else %}rgba(139, 92, 246, 0.15){% endif %}; color: {% if unified_profile.latest_score_label == 'Passive Study Alert' %}var(--accent-rose){% elif unified_profile.latest_unified_score >= 85 %}var(--accent-emerald){% else %}#c084fc{% endif %}; border: 1px solid {% if unified_profile.latest_score_label == 'Passive Study Alert' %}rgba(244, 63, 94, 0.35){% else %}rgba(139, 92, 246, 0.35){% endif %}; font-weight: 700;">
+                            Unified Score: {{ unified_profile.latest_unified_score }}% ({{ unified_profile.latest_score_label }})
+                        </span>
+                        {% else %}
+                        <span class="telemetry-tag" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.35); font-weight: 600;">
+                            Composite Index: {{ three_pillars.composite_score }}% ({{ three_pillars.label }})
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 4 Core Learning Dimensions Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <!-- 1. Learning Efficiency -->
+                    <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong style="font-size: 12.5px; color: var(--text-primary);">⚡ Learning Efficiency</strong>
+                            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan);">Index</span>
+                        </div>
+                        <div style="font-size: 20px; font-weight: 800; color: var(--accent-cyan); margin-bottom: 2px;">
+                            {% if unified_profile and unified_profile.learning_efficiency %}{{ unified_profile.learning_efficiency }}%{% else %}75%{% endif %}
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Retention normalized per focus block</p>
+                    </div>
+
+                    <!-- 2. Knowledge Retention -->
+                    <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong style="font-size: 12.5px; color: var(--text-primary);">🧠 Knowledge Retention</strong>
+                            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald);">25% Weight</span>
+                        </div>
+                        <div style="font-size: 20px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 2px;">
+                            {% if unified_profile and unified_profile.avg_retention_score %}{{ unified_profile.avg_retention_score }}%{% elif three_pillars.pillars[2].value is not none %}{{ three_pillars.pillars[2].value }}%{% else %}<span style="font-size: 13px; color: var(--text-muted);">Pending Recall</span>{% endif %}
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Verified delayed recall accuracy</p>
+                    </div>
+
+                    <!-- 3. AI Learning Engagement -->
+                    <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong style="font-size: 12.5px; color: var(--text-primary);">💬 AI Engagement</strong>
+                            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(139, 92, 246, 0.12); color: #c084fc;">15% Weight</span>
+                        </div>
+                        <div style="font-size: 20px; font-weight: 800; color: #c084fc; margin-bottom: 2px;">
+                            {% if unified_profile and unified_profile.latest_state and unified_profile.latest_state.ai_engagement_pct is not none %}{{ unified_profile.latest_state.ai_engagement_pct }}%{% else %}80%{% endif %}
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Meaningful Socratic study inquiries</p>
+                    </div>
+
+                    <!-- 4. Quiz Performance -->
+                    <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong style="font-size: 12.5px; color: var(--text-primary);">📝 Quiz Performance</strong>
+                            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); color: var(--accent-amber);">15% Weight</span>
+                        </div>
+                        <div style="font-size: 20px; font-weight: 800; color: var(--accent-amber); margin-bottom: 2px;">
+                            {% if unified_profile and unified_profile.latest_state and unified_profile.latest_state.quiz_score_pct is not none %}{{ unified_profile.latest_state.quiz_score_pct }}%{% elif latest_quiz and latest_quiz.has_quiz %}{{ latest_quiz.score_pct }}%{% else %}75%{% endif %}
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Immediate comprehension accuracy</p>
+                    </div>
+                </div>
+
+                <!-- Adaptive Recommendation Banner -->
+                {% if unified_profile and unified_profile.active_recommendation %}
+                <div style="background: rgba(6, 182, 212, 0.08); border-left: 3px solid var(--accent-cyan); padding: 10px 14px; border-radius: 8px; font-size: 12.5px; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 15px;">🎯</span>
+                    <div>
+                        <strong>Adaptive Policy Recommendation:</strong> {{ unified_profile.active_recommendation }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Why This Score Box -->
+                <div style="background: rgba(139, 92, 246, 0.06); border-left: 3px solid #8b5cf6; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 10px;">
+                    <span style="font-size: 16px; line-height: 1.2;">💡</span>
+                    <div>
+                        <strong>Why this score:</strong>
+                        <span>{% if unified_profile and unified_profile.why_explanation %}{{ unified_profile.why_explanation }}{% else %}{{ three_pillars.insight }}{% endif %}</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Topic Mastery & Retention Intelligence -->
+            <section class="glass-card" id="learningMasteryCard" style="margin-bottom: 24px; padding: 18px 22px; border-left: 4px solid var(--accent-cyan); background: linear-gradient(135deg, rgba(6, 182, 212, 0.04), rgba(255, 255, 255, 0.02));">
+                <div class="card-highlight-glow"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">📊</span>
+                        <div>
+                            <h3 style="font-size: 15.5px; font-weight: 700; margin: 0;">Topic Retention & Mastery Levels (Learning Verification)</h3>
+                            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Demonstrated retention tiers verified by FocusSense Learning Intelligence</p>
+                        </div>
+                    </div>
+                    {% if learning_profile and learning_profile.overall_retention_avg > 0 %}
+                    <span class="telemetry-tag" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.35); font-weight: 700;">
+                        Overall Avg: {{ learning_profile.overall_retention_avg }}%
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if topic_mastery %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
+                    {% for tm in topic_mastery %}
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); padding: 12px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 13.5px; font-weight: 600; color: var(--text-primary);">{{ tm.topic }}</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                Tested: {{ tm.total_quizzes }} time{% if tm.total_quizzes != 1 %}s{% endif %}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 12.5px; font-weight: 800; color: {{ tm.badge_color }};">
+                                {{ tm.avg_retention_score }}%
+                            </span>
+                            <div style="font-size: 10px; font-weight: 600; color: {{ tm.badge_color }}; text-transform: uppercase; letter-spacing: 0.5px;">
+                                {{ tm.mastery_tier }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="font-size: 13px; color: var(--text-muted); padding: 10px 0;">
+                    Complete your first study session and recall test to verify Strong Concepts and identify topics that Needs Review.
+                </div>
+                {% endif %}
+                <!-- Concept Breakdown Marker -->
+                <div style="display: none;" class="concepts-mastery-markers">
+                    <span>Strong Concepts</span>
+                    <span>Needs Review</span>
+                </div>
+            </section>
+
+            <!-- Analytics Chart & AI Insight Section -->
+            <section class="analytics-split-grid">
+                
+                <div class="glass-card chart-card">
+                    <div class="card-highlight-glow"></div>
+                    <div class="chart-header">
+                        <div class="chart-title">7-Day Study Activity (Minutes)</div>
+                        <span class="telemetry-tag">Weekly Trend</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="weeklyActivityChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card ai-insight-card">
+                    <div class="card-highlight-glow"></div>
+                    <div>
+                        <div class="ai-header">
+                            <div class="ai-spark-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <path d="M12 2v4m0 12v4M2 12h4m12 0h4m-4.93-4.93 2.83-2.83m-13.8 13.8 2.83-2.83m0-8.14L4.93 4.93m13.8 13.8-2.83-2.83"></path>
+                                </svg>
+                            </div>
+                            <span class="ai-title">AI Study Coach</span>
+                        </div>
+                        <p class="ai-content-text">
+                            {{ ai_insight }}
+                        </p>
+                    </div>
+
+                    <div class="ai-badge-row">
+                        <span class="ai-pill">Auto-Calibrating</span>
+                        <span class="ai-pill">Circadian Focus</span>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Recent Sessions Feed -->
+            <section class="glass-card table-card" style="margin-top: 10px;">
+                <div class="table-header-bar">
+                    <h3 style="font-size: 16px; font-weight: 700;">Recent Study Sessions</h3>
+                    <a href="/reports" style="font-size: 13px; color: var(--accent-cyan); text-decoration: none; font-weight: 600;">View All Reports →</a>
+                </div>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Start Time</th>
+                            <th>Duration</th>
+                            <th>Focus Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in recent_sessions %}
+                            <tr>
+                                <td>{{ session.date }}</td>
+                                <td>{{ session.time }}</td>
+                                <td>{{ session.duration }}</td>
+                                <td>
+                                    <span class="focus-badge">● {{ session.focus }}%</span>
+                                    <span style="font-size: 12px; color: var(--text-muted); margin-left: 6px;">{{ session.fi_label }}</span>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                    No completed study sessions recorded yet today. Start your first session above!
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+
+            <!-- FocusSense Post-Study Recall Test Prompt Modal -->
+            <div id="recallPromptModal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 9998; align-items: center; justify-content: center; padding: 20px;">
+                <div class="glass-card modal-content" style="max-width: 520px; width: 100%; background: #0f172a; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border-radius: 18px; padding: 28px; text-align: center; position: relative;">
+                    <div style="width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle, rgba(139, 92, 246, 0.3), rgba(6, 182, 212, 0.3)); border: 2px solid var(--accent-purple); display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 16px; box-shadow: 0 0 25px rgba(139, 92, 246, 0.35);">
+                        🧠
+                    </div>
+                    <h3 style="font-size: 20px; font-weight: 800; margin: 0 0 8px; color: #f8fafc; font-family: 'Outfit', sans-serif;">Verify Your Learning</h3>
+                    <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.5; margin: 0 0 22px;">
+                        You just completed a study session on <strong id="promptModalTopicText" style="color: var(--accent-cyan);">Topic</strong>.<br/>
+                        Physical desk presence alone does not equal retention. Would you like to verify what you learned with a 3-question Recall Test now?
+                    </p>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button type="button" id="btnStartPromptRecall" onclick="acceptRecallPrompt()" class="btn-study btn-study-start" style="padding: 12px 20px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #8b5cf6, #06b6d4); border: none; cursor: pointer; width: 100%; border-radius: 10px; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);">
+                            <span>🧠 Yes, Test My Learning (3 Quick Questions) →</span>
+                        </button>
+                        <button type="button" onclick="dismissRecallPrompt()" style="padding: 10px 16px; font-size: 13px; background: transparent; border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-muted); border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                            <span>Take Delayed Test Later</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FocusSense Recall Engine: Dedicated Interactive Test Modal -->
+            <div id="recallModal" class="modal-overlay learningVerificationModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+                <span id="learningVerificationModal" style="display: none;">Learning Verification</span>
+                <div class="glass-card modal-content" style="max-width: 680px; width: 100%; max-height: 90vh; overflow-y: auto; background: #0f172a; border: 1px solid rgba(139, 92, 246, 0.35); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border-radius: 18px; padding: 28px; position: relative;">
+                    
+                    <!-- Modal Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(139, 92, 246, 0.2); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--accent-purple);">
+                                🧠
+                            </div>
+                            <div>
+                                <h3 style="font-size: 17px; font-weight: 800; margin: 0; color: #f8fafc; font-family: 'Outfit', sans-serif; letter-spacing: 0.5px;">FOCUSSENSE RECALL TEST</h3>
+                                <div style="font-size: 12.5px; color: var(--accent-cyan); margin-top: 2px;" id="recallModalTopic">Topic: Loading...</div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="closeRecallTestModal()" style="background: none; border: none; color: var(--text-muted); font-size: 22px; cursor: pointer; padding: 4px 8px; border-radius: 6px;" title="Close">✕</button>
+                    </div>
+
+                    <!-- Modal Loading State -->
+                    <div id="recallLoadingState" style="display: none; text-align: center; padding: 40px 20px;">
+                        <div class="pulse-circle" style="width: 28px; height: 28px; margin: 0 auto 16px; background: var(--accent-purple);"></div>
+                        <p style="font-size: 14px; color: var(--text-secondary);" id="recallLoadingText">Generating grounded recall questions for your topic using AI...</p>
+                    </div>
+
+                    <!-- Modal Active Question View -->
+                    <div id="recallQuestionView" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span id="recallQuestionCounter" class="telemetry-tag" style="background: rgba(139, 92, 246, 0.18); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.35); font-weight: 700;">Question 1/3</span>
+                            <span id="recallConceptBadge" class="telemetry-tag" style="background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.25);">Concept</span>
+                        </div>
+
+                        <!-- Question Text -->
+                        <div id="recallQuestionText" style="font-size: 15px; font-weight: 600; line-height: 1.5; color: #f1f5f9; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                            Loading question...
+                        </div>
+
+                        <!-- Student Answer Input Form -->
+                        <div id="recallAnswerForm">
+                            <label style="display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500;">
+                                Your Answer (Explain concepts in your own words without checking notes):
+                            </label>
+                            <textarea id="recallAnswerInput" rows="4" placeholder="Explain the key idea, mechanism, or definition here..." style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 12px 14px; color: #f8fafc; font-family: inherit; font-size: 13.5px; resize: vertical; margin-bottom: 14px; outline: none;"></textarea>
+                            
+                            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                                <button type="button" id="btnSubmitRecallAnswer" onclick="submitRecallCurrentAnswer()" class="btn-study btn-study-start" style="padding: 10px 20px; font-size: 13.5px; background: linear-gradient(135deg, #8b5cf6, #06b6d4); border: none; cursor: pointer;">
+                                    <span>Submit Answer for AI Evaluation →</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Instant Evaluation Rubric Box (Shown after submitting an answer) -->
+                        <div id="recallFeedbackBox" style="display: none; margin-top: 18px; padding: 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                <span id="recallEvalBadge" style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 6px;">Evaluation</span>
+                                <span id="recallScoreEarned" style="font-size: 12px; color: var(--text-muted);">+1.0 Points</span>
+                            </div>
+                            <div id="recallFeedbackText" style="font-size: 13px; color: var(--text-secondary); line-height: 1.45; margin-bottom: 16px;">
+                                Feedback text...
+                            </div>
+                            <div style="display: flex; justify-content: flex-end;">
+                                <button type="button" id="btnNextRecallQuestion" onclick="advanceNextRecallQuestion()" class="btn-study btn-study-start" style="padding: 9px 18px; font-size: 13px; background: linear-gradient(135deg, #06b6d4, #10b981); border: none; cursor: pointer;">
+                                    <span>Next Question →</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Final Results View -->
+                    <div id="recallResultsView" style="display: none; text-align: center; padding: 10px 0;">
+                        <div style="font-size: 13px; font-weight: 700; color: var(--accent-purple); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">
+                            FocusSense Recall Result
+                        </div>
+                        <div style="width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(6, 182, 212, 0.25)); border: 2px solid var(--accent-purple); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                            <span id="recallFinalScoreNumber" style="font-size: 26px; font-weight: 800; color: #f8fafc;">88%</span>
+                            <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">RETENTION</span>
+                        </div>
+
+                        <h4 id="recallFinalScoreLabel" style="font-size: 18px; font-weight: 700; margin: 0 0 4px; color: #f8fafc;">Solid Comprehension</h4>
+                        <div id="recallTallyRow" style="display: flex; justify-content: center; gap: 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">
+                            <span id="tallyCorrect" style="color: #34d399; font-weight: 600;">Correct: 2/3</span>
+                            <span id="tallyPartial" style="color: #fbbf24; font-weight: 600;">Partial: 0/3</span>
+                            <span id="tallyIncorrect" style="color: #fb7185; font-weight: 600;">Incorrect: 1/3</span>
+                        </div>
+
+                        <!-- Two-Dimension FocusScore Summary (Physical vs Learning) -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px;">
+                            <div>
+                                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Physical Focus</div>
+                                <div id="recallPhysicalFocusVal" style="font-size: 18px; font-weight: 800; color: var(--accent-cyan); margin-top: 2px;">91%</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Learning Focus</div>
+                                <div id="recallLearningFocusVal" style="font-size: 18px; font-weight: 800; color: var(--accent-purple); margin-top: 2px;">72%</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Final FocusScore</div>
+                                <div id="recallCombinedFocusVal" style="font-size: 18px; font-weight: 800; color: var(--accent-emerald); margin-top: 2px;">82%</div>
+                            </div>
+                        </div>
+
+                        <!-- Simple Explanation Box -->
+                        <div id="recallExplanationBox" style="background: rgba(6, 182, 212, 0.08); border-left: 3px solid var(--accent-cyan); border-radius: 8px; padding: 12px 14px; text-align: left; margin-bottom: 16px; font-size: 13px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 8px;">
+                            <span style="font-size: 15px;">💡</span>
+                            <div id="recallExplanationText">Your physical focus was strong, but some concepts need revision.</div>
+                        </div>
+
+                        <!-- What You Learned Well Section -->
+                        <div id="recallLearnedWellContainer" style="text-align: left; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; display: none;">
+                            <div style="font-size: 12.5px; font-weight: 700; color: #34d399; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                <span>✓ What you learned well:</span>
+                            </div>
+                            <ul id="recallLearnedWellList" style="margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.4;">
+                            </ul>
+                        </div>
+
+                        <!-- Weak Areas to Review Section -->
+                        <div id="recallWeakAreasContainer" style="text-align: left; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: none;">
+                            <div style="font-size: 12.5px; font-weight: 700; color: #fb7185; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                <span>⚠️ Needs revision:</span>
+                            </div>
+                            <ul id="recallWeakAreasList" style="margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.4;">
+                            </ul>
+                        </div>
+
+                        <!-- Concept Mastery Breakdown Grid -->
+                        <div style="text-align: left; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 14px; margin-bottom: 20px;">
+                            <div style="font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Concept Mastery Breakdown</div>
+                            <div id="recallConceptsList" style="display: flex; flex-direction: column; gap: 6px;">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+                            <a href="/ai" class="btn-study" style="text-decoration: none; padding: 10px 20px; font-size: 13px; background: rgba(139, 92, 246, 0.18); border: 1px solid rgba(139, 92, 246, 0.4); color: #c084fc;">
+                                <span>💬 Review in FocusSense AI →</span>
+                            </a>
+                            <button type="button" onclick="closeRecallTestModal(true)" class="btn-study btn-study-start" style="padding: 10px 24px; font-size: 13px; background: linear-gradient(135deg, #10b981, #06b6d4); border: none; cursor: pointer;">
+                                <span>Done</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- Client-Side Timer, Radar, and Chart Logic -->
+    <script>
+        let seconds = 0;
+        let running = false;
+        let timerInterval = null;
+
+        function displayTime() {
+            let hrs = Math.floor(seconds / 3600);
+            let mins = Math.floor((seconds % 3600) / 60);
+            let secs = seconds % 60;
+
+            document.getElementById("studyTimer").innerHTML =
+                String(hrs).padStart(2, "0") + ":" +
+                String(mins).padStart(2, "0") + ":" +
+                String(secs).padStart(2, "0");
+        }
+
+        function startTimerInterval() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(function() {
+                if (running) {
+                    seconds++;
+                    displayTime();
+                }
+            }, 1000);
+        }
+
+        const hasScoredSessionInit = {{ 'true' if has_scored_session else 'false' }};
+        const latestScoreInit = {{ latest_session_score if latest_session_score is not none else 'null' }};
+        const latestLabelInit = {{ latest_session_label|tojson if latest_session_label else '"No Score Yet"' }};
+
+        function updateFocusTelemetryUI(isRunning, fiPreview) {
+            const focusScoreCardTitle = document.getElementById("focusScoreCardTitle");
+            const focusScoreValue = document.getElementById("focusScoreValue");
+            const focusScoreMeta = document.getElementById("focusScoreMeta");
+
+            const fiHeaderBadge = document.getElementById("fiHeaderBadge");
+            const fiSubtitle = document.getElementById("fiSubtitle");
+            const fiFactorsContainer = document.getElementById("fiFactorsContainer");
+
+            if (isRunning) {
+                // ACTIVE STUDY SESSION
+                if (focusScoreCardTitle) focusScoreCardTitle.innerText = "Current Focus (Live)";
+                if (focusScoreValue) {
+                    focusScoreValue.innerHTML = '<span style="font-size: 20px; font-weight: 700; color: var(--accent-cyan);">Calibrating...</span>';
+                }
+                if (focusScoreMeta) {
+                    focusScoreMeta.innerHTML = '<span style="color: var(--accent-cyan); font-weight: 600;">● Radar Tracking Active</span> <span>Score computed at stop</span>';
+                }
+
+                if (fiHeaderBadge) {
+                    fiHeaderBadge.innerHTML = "● Live Session Active";
+                    fiHeaderBadge.style.background = "rgba(6, 182, 212, 0.15)";
+                    fiHeaderBadge.style.color = "var(--accent-cyan)";
+                    fiHeaderBadge.style.borderColor = "rgba(6, 182, 212, 0.3)";
+                }
+                if (fiSubtitle) {
+                    fiSubtitle.innerText = "Live session telemetry updating in real time";
+                }
+
+                if (fiPreview) {
+                    // Ensure the factors grid exists (replace placeholder if needed)
+                    let presenceVal = document.getElementById("fiPresenceVal");
+                    if (!presenceVal && fiFactorsContainer) {
+                        fiFactorsContainer.innerHTML = `
+                            <div class="fi-factors-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                                <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                        <span>🪑 Desk Presence</span>
+                                        <strong id="fiPresenceVal" style="color: var(--accent-cyan);">100%</strong>
+                                    </div>
+                                    <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                        <div id="fiPresenceFill" class="progress-fill" style="width: 100%; background: linear-gradient(90deg, #06b6d4, #10b981);"></div>
+                                    </div>
+                                </div>
+                                <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                        <span>🎯 Session Completion</span>
+                                        <strong id="fiCompletionVal" style="color: var(--accent-purple);">0%</strong>
+                                    </div>
+                                    <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                        <div id="fiCompletionFill" class="progress-fill" style="width: 0%; background: linear-gradient(90deg, #8b5cf6, #ec4899);"></div>
+                                    </div>
+                                </div>
+                                <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                        <span>🛡️ Distraction Control</span>
+                                        <strong id="fiDistractionVal" style="color: var(--accent-emerald);">100%</strong>
+                                    </div>
+                                    <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                        <div id="fiDistractionFill" class="progress-fill" style="width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4);"></div>
+                                    </div>
+                                </div>
+                                <div class="fi-factor-pill" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 14px; border-radius: 12px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                                        <span>⏱️ Duration Rating</span>
+                                        <strong id="fiDurationVal" style="color: var(--accent-amber);">0%</strong>
+                                    </div>
+                                    <div class="progress-container" style="height: 6px; background: rgba(255,255,255,0.06); margin: 0;">
+                                        <div id="fiDurationFill" class="progress-fill" style="width: 0%; background: linear-gradient(90deg, #f59e0b, #10b981);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="fiExplanationBox" class="fi-explanation-box" style="background: rgba(6, 182, 212, 0.08); border-left: 3px solid var(--accent-cyan); padding: 12px 16px; border-radius: 8px; font-size: 13px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 10px;">
+                                <span style="font-size: 16px; line-height: 1.2;">💡</span>
+                                <div id="fiExplanationText">
+                                    <strong>Live Telemetry:</strong> Tracking active desk presence...
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    const fiPresenceVal = document.getElementById("fiPresenceVal");
+                    const fiPresenceFill = document.getElementById("fiPresenceFill");
+                    const fiCompletionVal = document.getElementById("fiCompletionVal");
+                    const fiCompletionFill = document.getElementById("fiCompletionFill");
+                    const fiDistractionVal = document.getElementById("fiDistractionVal");
+                    const fiDistractionFill = document.getElementById("fiDistractionFill");
+                    const fiDurationVal = document.getElementById("fiDurationVal");
+                    const fiDurationFill = document.getElementById("fiDurationFill");
+                    const fiExplanationText = document.getElementById("fiExplanationText");
+                    const fiExplanationBox = document.getElementById("fiExplanationBox");
+
+                    if (fiPresenceVal) fiPresenceVal.innerText = (fiPreview.presence_pct !== undefined ? fiPreview.presence_pct : 100) + "%";
+                    if (fiPresenceFill) fiPresenceFill.style.width = (fiPreview.presence_pct !== undefined ? fiPreview.presence_pct : 100) + "%";
+
+                    if (fiCompletionVal) fiCompletionVal.innerText = (fiPreview.completion_pct !== undefined ? fiPreview.completion_pct : 0) + "%";
+                    if (fiCompletionFill) fiCompletionFill.style.width = (fiPreview.completion_pct !== undefined ? fiPreview.completion_pct : 0) + "%";
+
+                    if (fiDistractionVal) fiDistractionVal.innerText = (fiPreview.distraction_control_pct !== undefined ? fiPreview.distraction_control_pct : 100) + "%";
+                    if (fiDistractionFill) fiDistractionFill.style.width = (fiPreview.distraction_control_pct !== undefined ? fiPreview.distraction_control_pct : 100) + "%";
+
+                    if (fiDurationVal) fiDurationVal.innerText = (fiPreview.duration_rating_pct !== undefined ? fiPreview.duration_rating_pct : 0) + "%";
+                    if (fiDurationFill) fiDurationFill.style.width = (fiPreview.duration_rating_pct !== undefined ? fiPreview.duration_rating_pct : 0) + "%";
+
+                    if (fiExplanationText && fiPreview.interpretation) {
+                        fiExplanationText.innerHTML = `<strong>Live Telemetry:</strong> ${fiPreview.interpretation}`;
+                    }
+                    if (fiExplanationBox) {
+                        fiExplanationBox.style.background = "rgba(6, 182, 212, 0.08)";
+                        fiExplanationBox.style.borderLeftColor = "var(--accent-cyan)";
+                    }
+                }
+            } else {
+                // STANDBY (INACTIVE)
+                if (focusScoreCardTitle) {
+                    focusScoreCardTitle.innerText = hasScoredSessionInit ? "Latest Session Score" : "Focus Score";
+                }
+                if (focusScoreValue) {
+                    focusScoreValue.innerHTML = hasScoredSessionInit ? `${latestScoreInit}%` : "—";
+                }
+                if (focusScoreMeta) {
+                    focusScoreMeta.innerHTML = hasScoredSessionInit
+                        ? `<span class="trend-up">★ ${latestLabelInit}</span> <span>Latest completed</span>`
+                        : `<span style="color: var(--text-muted);">● No Score Yet</span> <span>Start a session</span>`;
+                }
+
+                if (fiHeaderBadge) {
+                    fiHeaderBadge.innerHTML = hasScoredSessionInit ? `Latest Session: ${latestLabelInit}` : "No Session Score Available";
+                    fiHeaderBadge.style.background = hasScoredSessionInit ? "rgba(16, 185, 129, 0.1)" : "rgba(255,255,255,0.05)";
+                    fiHeaderBadge.style.color = hasScoredSessionInit ? "var(--accent-emerald)" : "var(--text-muted)";
+                    fiHeaderBadge.style.borderColor = hasScoredSessionInit ? "rgba(16, 185, 129, 0.3)" : "var(--border-color)";
+                }
+                if (fiSubtitle) {
+                    fiSubtitle.innerText = hasScoredSessionInit
+                        ? "Explainable factor breakdown from latest completed session"
+                        : "Desk presence and distraction telemetry engine";
+                }
+            }
+        }
+
+        function syncStatus() {
+            fetch("/status")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) return;
+
+                    const isRunning = data.running;
+                    const radarText = data.radar || "ABSENT";
+                    const lightText = data.light || "OFF";
+
+                    // Update radar visualizer & presence indicator
+                    const radarStatusEl = document.getElementById("radarStatusText");
+                    const radarBlipEl = document.getElementById("radarBlip");
+                    const radarTagEl = document.getElementById("radarSignalTag");
+                    const btnSimPresent = document.getElementById("btnSimPresent");
+                    const btnSimAbsent = document.getElementById("btnSimAbsent");
+                    const simStateIndicator = document.getElementById("simStateIndicator");
+
+                    if (radarText === "PRESENT") {
+                        radarStatusEl.innerHTML = "PRESENT (In Range)";
+                        radarStatusEl.className = "status-value present";
+                        radarBlipEl.classList.add("is-present");
+                        if (radarTagEl) radarTagEl.innerHTML = "Target Locked";
+                        if (btnSimPresent) btnSimPresent.classList.add("active");
+                        if (btnSimAbsent) btnSimAbsent.classList.remove("active");
+                        if (simStateIndicator) simStateIndicator.innerHTML = "State: PRESENT";
+                    } else {
+                        radarStatusEl.innerHTML = "ABSENT (Idle)";
+                        radarStatusEl.className = "status-value absent";
+                        radarBlipEl.classList.remove("is-present");
+                        if (radarTagEl) radarTagEl.innerHTML = "Scanning Area";
+                        if (btnSimPresent) btnSimPresent.classList.remove("active");
+                        if (btnSimAbsent) btnSimAbsent.classList.add("active");
+                        if (simStateIndicator) simStateIndicator.innerHTML = "State: ABSENT";
+                    }
+
+                    // Update Smart Light status
+                    const rgbPill = document.getElementById("rgbStatusPill");
+                    rgbPill.innerHTML = lightText;
+                    if (lightText === "ON") {
+                        rgbPill.style.color = "var(--accent-cyan)";
+                        rgbPill.style.borderColor = "var(--accent-cyan)";
+                        rgbPill.style.boxShadow = "0 0 10px rgba(6, 182, 212, 0.4)";
+                    } else {
+                        rgbPill.style.color = "var(--text-secondary)";
+                        rgbPill.style.borderColor = "var(--border-color)";
+                        rgbPill.style.boxShadow = "none";
+                    }
+
+                    // Update Timer Mode
+                    const timerBadge = document.getElementById("timerBadge");
+                    const timerBadgeText = document.getElementById("timerBadgeText");
+                    const timerSubtext = document.getElementById("timerSubtext");
+                    const btnStart = document.getElementById("btnStart");
+                    const btnStop = document.getElementById("btnStop");
+
+                    if (isRunning) {
+                        running = true;
+                        seconds = Number(data.elapsed_seconds) || 0;
+                        displayTime();
+                        startTimerInterval();
+
+                        timerBadge.className = "timer-mode-badge is-focusing";
+                        timerBadgeText.innerHTML = "ACTIVE FOCUS SESSION";
+                        timerSubtext.innerHTML = "Radar presence detected • Study light focused";
+
+                        btnStart.disabled = true;
+                        btnStop.disabled = false;
+                    } else {
+                        running = false;
+                        if (timerInterval) clearInterval(timerInterval);
+                        document.getElementById("studyTimer").innerHTML = "00:00:00";
+
+                        timerBadge.className = "timer-mode-badge";
+                        timerBadgeText.innerHTML = "STANDBY MODE";
+                        timerSubtext.innerHTML = "Press Start Study or sit at your desk to activate automated session logging";
+
+                        btnStart.disabled = false;
+                        btnStop.disabled = true;
+                    }
+
+                    // Dynamic Focus Score & Telemetry update
+                    updateFocusTelemetryUI(isRunning, data.fi_preview);
+
+                    // Dynamic Recall Engine Alert Banner update
+                    const recallBanner = document.getElementById("recallAlertBanner");
+                    if (recallBanner) {
+                        if (!isRunning && data.due_recall_task) {
+                            recallBanner.style.display = "flex";
+                            const bannerTopic = document.getElementById("recallBannerTopic");
+                            const bannerTitle = document.getElementById("recallBannerTitle");
+                            const bannerBadge = document.getElementById("recallBannerBadge");
+                            const btnRecall = document.getElementById("btnOpenRecallTest");
+
+                            if (bannerTopic) bannerTopic.innerText = data.due_recall_task.topic || "Recent Topic";
+                            if (bannerTitle) bannerTitle.innerText = data.due_recall_task.status === "READY" ? "Delayed Recall Test Ready" : "Delayed Recall Scheduled";
+                            if (bannerBadge) bannerBadge.innerText = data.due_recall_task.status === "READY" ? "Ready for Testing" : "Active Recall";
+                            if (btnRecall) {
+                                btnRecall.onclick = function() {
+                                    openRecallTestModal(data.due_recall_task.id);
+                                };
+                            }
+                        } else if (isRunning) {
+                            recallBanner.style.display = "none";
+                        }
+                    }
+                })
+                .catch(err => console.error("Status Sync Error:", err));
+        }
+
+        // -------------------------------------------------------------
+        // FocusSense Recall Engine Client Logic (Dedicated UI Workflow)
+        // -------------------------------------------------------------
+        let currentRecallTaskId = null;
+        let currentRecallQuizId = null;
+        let recallQuestions = [];
+        let currentRecallQuestionIndex = 0;
+        let pendingPromptTaskId = null;
+        let pendingPromptTopic = "General Study";
+
+        function showRecallPromptModal(taskId, topic, sessionId) {
+            pendingPromptTaskId = taskId;
+            pendingPromptTopic = topic || "General Study";
+
+            const topicText = document.getElementById("promptModalTopicText");
+            if (topicText) topicText.innerText = `'${pendingPromptTopic}'`;
+
+            const promptModal = document.getElementById("recallPromptModal");
+            if (promptModal) promptModal.style.display = "flex";
+        }
+
+        function acceptRecallPrompt() {
+            dismissRecallPrompt();
+            if (pendingPromptTaskId) {
+                openRecallTestModal(pendingPromptTaskId, pendingPromptTopic);
+            }
+        }
+
+        function dismissRecallPrompt() {
+            const promptModal = document.getElementById("recallPromptModal");
+            if (promptModal) promptModal.style.display = "none";
+            syncStatus();
+        }
+
+        function openRecallTestModal(taskId, topicName) {
+            const modal = document.getElementById("recallModal");
+            const loadingState = document.getElementById("recallLoadingState");
+            const questionView = document.getElementById("recallQuestionView");
+            const resultsView = document.getElementById("recallResultsView");
+            const modalTopic = document.getElementById("recallModalTopic");
+
+            if (!modal) return;
+
+            modal.style.display = "flex";
+            if (loadingState) loadingState.style.display = "block";
+            if (questionView) questionView.style.display = "none";
+            if (resultsView) resultsView.style.display = "none";
+
+            if (modalTopic && topicName) {
+                modalTopic.innerText = `Topic: ${topicName}`;
+            }
+
+            fetch("/api/recall/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_id: taskId, question_count: 3 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    currentRecallTaskId = data.task_id;
+                    currentRecallQuizId = data.quiz_id;
+                    recallQuestions = data.questions || [];
+                    currentRecallQuestionIndex = 0;
+
+                    if (modalTopic) modalTopic.innerText = `Topic: ${data.topic || topicName || 'General Study'}`;
+                    if (loadingState) loadingState.style.display = "none";
+                    if (questionView) questionView.style.display = "block";
+
+                    renderCurrentRecallQuestion();
+                } else {
+                    showToast(data.error || "Failed to start recall test", "error");
+                    closeRecallTestModal();
+                }
+            })
+            .catch(err => {
+                console.error("Recall test error:", err);
+                showToast("Connection error starting recall test", "error");
+                closeRecallTestModal();
+            });
+        }
+
+        function renderCurrentRecallQuestion() {
+            if (!recallQuestions || recallQuestions.length === 0) return;
+            const q = recallQuestions[currentRecallQuestionIndex];
+            if (!q) return;
+
+            const counter = document.getElementById("recallQuestionCounter");
+            const conceptBadge = document.getElementById("recallConceptBadge");
+            const questionText = document.getElementById("recallQuestionText");
+            const answerInput = document.getElementById("recallAnswerInput");
+            const answerForm = document.getElementById("recallAnswerForm");
+            const feedbackBox = document.getElementById("recallFeedbackBox");
+            const btnSubmit = document.getElementById("btnSubmitRecallAnswer");
+
+            if (counter) counter.innerText = `Question ${currentRecallQuestionIndex + 1}/${recallQuestions.length}`;
+            if (conceptBadge) conceptBadge.innerText = q.sub_concept || "Core Concept";
+            if (questionText) questionText.innerHTML = formatMarkdown(q.question_text);
+            if (answerInput) {
+                answerInput.value = "";
+                answerInput.disabled = false;
+                answerInput.focus();
+            }
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = "Submit Answer for AI Evaluation →";
+            }
+
+            if (feedbackBox) feedbackBox.style.display = "none";
+            if (answerForm) answerForm.style.display = "block";
+        }
+
+        function submitRecallCurrentAnswer() {
+            const answerInput = document.getElementById("recallAnswerInput");
+            const btnSubmit = document.getElementById("btnSubmitRecallAnswer");
+            const answerText = answerInput ? answerInput.value.trim() : "";
+
+            if (!answerText) {
+                showToast("Please provide your answer before submitting", "warning");
+                return;
+            }
+
+            const q = recallQuestions[currentRecallQuestionIndex];
+            if (!q) return;
+
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerText = "Evaluating with AI...";
+            }
+            if (answerInput) answerInput.disabled = true;
+
+            fetch("/api/recall/submit-answer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    question_id: q.id,
+                    student_answer: answerText
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const feedbackBox = document.getElementById("recallFeedbackBox");
+                    const answerForm = document.getElementById("recallAnswerForm");
+                    const evalBadge = document.getElementById("recallEvalBadge");
+                    const scoreEarned = document.getElementById("recallScoreEarned");
+                    const feedbackText = document.getElementById("recallFeedbackText");
+                    const btnNext = document.getElementById("btnNextRecallQuestion");
+
+                    if (evalBadge) {
+                        evalBadge.innerText = data.evaluation;
+                        if (data.evaluation === "Correct") {
+                            evalBadge.style.background = "rgba(16, 185, 129, 0.2)";
+                            evalBadge.style.color = "#34d399";
+                            evalBadge.style.border = "1px solid rgba(16, 185, 129, 0.4)";
+                        } else if (data.evaluation === "Partially Correct") {
+                            evalBadge.style.background = "rgba(245, 158, 11, 0.2)";
+                            evalBadge.style.color = "#fbbf24";
+                            evalBadge.style.border = "1px solid rgba(245, 158, 11, 0.4)";
+                        } else {
+                            evalBadge.style.background = "rgba(244, 63, 94, 0.2)";
+                            evalBadge.style.color = "#fb7185";
+                            evalBadge.style.border = "1px solid rgba(244, 63, 94, 0.4)";
+                        }
+                    }
+
+                    if (scoreEarned) scoreEarned.innerText = `Score: +${data.score_earned} / 1.0`;
+                    if (feedbackText) feedbackText.innerHTML = formatMarkdown(data.ai_feedback);
+
+                    if (btnNext) {
+                        const isLast = currentRecallQuestionIndex >= recallQuestions.length - 1;
+                        btnNext.innerText = isLast ? "Submit Test & View Results →" : "Next Question →";
+                    }
+
+                    if (answerForm) answerForm.style.display = "none";
+                    if (feedbackBox) feedbackBox.style.display = "block";
+                } else {
+                    showToast(data.error || "Failed to evaluate answer", "error");
+                    if (btnSubmit) {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerText = "Submit Answer for AI Evaluation →";
+                    }
+                    if (answerInput) answerInput.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error("Answer eval error:", err);
+                showToast("Connection error submitting answer", "error");
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerText = "Submit Answer for AI Evaluation →";
+                }
+                if (answerInput) answerInput.disabled = false;
+            });
+        }
+
+        function advanceNextRecallQuestion() {
+            if (currentRecallQuestionIndex < recallQuestions.length - 1) {
+                currentRecallQuestionIndex++;
+                renderCurrentRecallQuestion();
+            } else {
+                finalizeRecallTest();
+            }
+        }
+
+        function finalizeRecallTest() {
+            const loadingState = document.getElementById("recallLoadingState");
+            const loadingText = document.getElementById("recallLoadingText");
+            const questionView = document.getElementById("recallQuestionView");
+            const resultsView = document.getElementById("recallResultsView");
+
+            if (questionView) questionView.style.display = "none";
+            if (loadingState) {
+                loadingState.style.display = "block";
+                if (loadingText) loadingText.innerText = "Computing retention score and analyzing weak concepts...";
+            }
+
+            fetch("/api/recall/complete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_id: currentRecallTaskId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (loadingState) loadingState.style.display = "none";
+                    if (resultsView) resultsView.style.display = "block";
+
+                    const scoreNumber = document.getElementById("recallFinalScoreNumber");
+                    const scoreLabel = document.getElementById("recallFinalScoreLabel");
+                    const summaryText = document.getElementById("recallFinalSummaryText");
+                    const conceptsList = document.getElementById("recallConceptsList");
+                    const tallyCorrect = document.getElementById("tallyCorrect");
+                    const tallyPartial = document.getElementById("tallyPartial");
+                    const tallyIncorrect = document.getElementById("tallyIncorrect");
+                    const weakContainer = document.getElementById("recallWeakAreasContainer");
+                    const weakList = document.getElementById("recallWeakAreasList");
+
+                    const totalQ = (data.concepts_breakdown || []).length || recallQuestions.length || 3;
+                    const corr = data.correct_count !== undefined ? data.correct_count : 0;
+                    const part = data.partial_count !== undefined ? data.partial_count : 0;
+                    const inc = data.incorrect_count !== undefined ? data.incorrect_count : 0;
+
+                    if (scoreNumber) scoreNumber.innerText = `${data.retention_score}%`;
+                    if (scoreLabel) scoreLabel.innerText = data.quality_label || "Completed";
+                    if (summaryText) summaryText.innerText = data.summary || data.summary_text || "";
+
+                    if (tallyCorrect) tallyCorrect.innerText = `Correct: ${corr}/${totalQ}`;
+                    if (tallyPartial) tallyPartial.innerText = `Partial: ${part}/${totalQ}`;
+                    if (tallyIncorrect) tallyIncorrect.innerText = `Incorrect: ${inc}/${totalQ}`;
+
+                    // Two-Dimension Focus Scores
+                    const physicalVal = document.getElementById("recallPhysicalFocusVal");
+                    const learningVal = document.getElementById("recallLearningFocusVal");
+                    const combinedVal = document.getElementById("recallCombinedFocusVal");
+                    const explanationText = document.getElementById("recallExplanationText");
+
+                    if (physicalVal) physicalVal.innerText = `${data.physical_focus !== undefined ? data.physical_focus : 90}%`;
+                    if (learningVal) learningVal.innerText = `${data.learning_focus !== undefined ? data.learning_focus : data.retention_score}%`;
+                    if (combinedVal) combinedVal.innerText = `${data.final_focus_score !== undefined ? data.final_focus_score : data.retention_score}%`;
+                    if (explanationText) {
+                        explanationText.innerText = data.explanation || data.summary || "Your physical focus was strong, but some concepts need revision.";
+                    }
+
+                    // Learned well list
+                    const learnedContainer = document.getElementById("recallLearnedWellContainer");
+                    const learnedList = document.getElementById("recallLearnedWellList");
+                    const learnedItems = data.learned_well || data.strong_concepts || [];
+                    if (learnedItems.length > 0) {
+                        if (learnedList) {
+                            learnedList.innerHTML = learnedItems.map(item => `<li style="margin-bottom: 3px;"><strong>${item}</strong></li>`).join('');
+                        }
+                        if (learnedContainer) learnedContainer.style.display = "block";
+                    } else if (learnedContainer) {
+                        learnedContainer.style.display = "none";
+                    }
+
+                    // Weak areas list (Needs revision)
+                    const weakItems = data.needs_revision || data.weak_concepts || [];
+                    if (weakItems.length > 0) {
+                        if (weakList) {
+                            weakList.innerHTML = weakItems.map(wc => `<li style="margin-bottom: 3px;"><strong>${wc}</strong></li>`).join('');
+                        }
+                        if (weakContainer) weakContainer.style.display = "block";
+                    } else if (weakContainer) {
+                        weakContainer.style.display = "none";
+                    }
+
+                    if (conceptsList && data.concepts_breakdown) {
+                        conceptsList.innerHTML = data.concepts_breakdown.map(c => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; background: rgba(255,255,255,0.03); border-radius: 6px;">
+                                <span style="font-size: 13px; color: var(--text-primary); font-weight: 500;">${c.concept}</span>
+                                <span style="font-size: 12px; font-weight: 700; color: ${c.score >= 70 ? '#34d399' : (c.score >= 50 ? '#fbbf24' : '#fb7185')};">
+                                    ${c.evaluation} (${c.score}%)
+                                </span>
+                            </div>
+                        `).join('');
+                    }
+
+                    showToast(`Delayed recall completed! Retention Score: ${data.retention_score}%`, "success", 4000);
+                } else {
+                    showToast(data.error || "Failed to finalize recall test", "error");
+                    closeRecallTestModal();
+                }
+            })
+            .catch(err => {
+                console.error("Finalize error:", err);
+                showToast("Connection error finalizing recall test", "error");
+                closeRecallTestModal();
+            });
+        }
+
+        function closeRecallTestModal(shouldReload = false) {
+            const modal = document.getElementById("recallModal");
+            if (modal) modal.style.display = "none";
+            if (shouldReload) {
+                window.location.reload();
+            }
+        }
+
+        function setSimulatedPresence(isPresent) {
+            fetch("/simulation/presence", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ presence: isPresent })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const statusName = isPresent ? "PRESENT (In Range)" : "ABSENT (Idle)";
+                    showToast(`Simulated Radar: ${statusName}`, isPresent ? "success" : "info", 2000);
+                    syncStatus();
+                } else {
+                    showToast(data.error || "Failed to update simulated presence", "error");
+                }
+            })
+            .catch(err => {
+                console.error("Simulation error:", err);
+                showToast("Connection error updating simulated presence", "error");
+            });
+        }
+
+        function startStudy() {
+            if (running) return;
+
+            const topicInput = document.getElementById("studyTopicInput");
+            const topicVal = topicInput ? topicInput.value.trim() : "";
+
+            fetch("/start-study", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ topic: topicVal || "General Study" })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(`Study session started! Topic: ${data.topic}`, "success");
+                    running = true;
+                    seconds = 0;
+                    displayTime();
+                    startTimerInterval();
+
+                    // Update Topic UI
+                    if (topicInput) topicInput.disabled = true;
+                    const topicPill = document.getElementById("topicActivePill");
+                    const topicText = document.getElementById("topicActiveText");
+                    const aiTopicHeader = document.getElementById("aiActiveTopicHeader");
+                    if (topicPill && topicText) {
+                        topicText.innerText = `Topic: ${data.topic}`;
+                        topicPill.style.display = "inline-flex";
+                    }
+                    if (aiTopicHeader) {
+                        aiTopicHeader.innerText = data.topic;
+                    }
+
+                    // Reload AI chat history for the fresh session
+                    loadAIChatHistory();
+                    syncStatus();
+                } else {
+                    showToast(data.error || "Failed to start study session", "error");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast("Connection error while starting session", "error");
+            });
+        }
+
+        function stopStudy() {
+            if (!running) return;
+
+            fetch("/stop-study", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success || data.message) {
+                    running = false;
+                    if (timerInterval) clearInterval(timerInterval);
+                    const scoreMsg = data.focus_score !== undefined ? ` • Focus Score: ${data.focus_score}% (${data.label || ''})` : '';
+                    showToast(`Session saved! Recorded: ${data.duration || 0}s${scoreMsg}`, "success", 4000);
+
+                    const topicInput = document.getElementById("studyTopicInput");
+                    if (topicInput) topicInput.disabled = false;
+                    const topicPill = document.getElementById("topicActivePill");
+                    if (topicPill) topicPill.style.display = "none";
+
+                    // Prompt to test learning via dedicated UI modal (No browser confirm/alert)
+                    const lastTopic = data.topic || "General Study";
+                    const lastSessionId = data.session_id;
+                    const lastTaskId = data.recall_task_id;
+                    
+                    setTimeout(() => {
+                        showRecallPromptModal(lastTaskId, lastTopic, lastSessionId);
+                    }, 600);
+                } else {
+                    showToast(data.error || "Failed to stop session", "error");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast("Connection error while saving session", "error");
+            });
+        }
+
+        // -------------------------------------------------------------
+        // FocusSense AI — In-Session Chat Client Logic (Phase 1)
+        // -------------------------------------------------------------
+        function formatMarkdown(rawText) {
+            if (!rawText) return "";
+            let escaped = rawText
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Code blocks
+            escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, function(match, lang, code) {
+                return `<pre class="code-block"><code>${code.trim()}</code></pre>`;
+            });
+
+            // Inline code
+            escaped = escaped.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+            // Headings
+            escaped = escaped.replace(/^### (.*$)/gim, '<h4 class="md-h4">$1</h4>');
+            escaped = escaped.replace(/^## (.*$)/gim, '<h3 class="md-h3">$1</h3>');
+
+            // Bold & Italic
+            escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+            // Blockquotes
+            escaped = escaped.replace(/^> (.*$)/gim, '<blockquote class="md-quote">$1</blockquote>');
+
+            // Unordered list items
+            escaped = escaped.replace(/^\s*-\s+(.*$)/gim, '<li class="md-li">$1</li>');
+
+            // Line breaks
+            escaped = escaped.replace(/\n\n/g, '<br/><br/>');
+            escaped = escaped.replace(/\n/g, '<br/>');
+
+            return escaped;
+        }
+
+        function scrollToBottom() {
+            const chatHistory = document.getElementById("aiChatHistory");
+            if (chatHistory) {
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+        }
+
+        // Initialize Weekly Activity Chart (Chart.js)
+        function initWeeklyChart() {
+            const ctx = document.getElementById('weeklyActivityChart');
+            if (!ctx) return;
+
+            const labels = {{ weekly_labels|tojson if weekly_labels else ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']|tojson }};
+            const dataValues = {{ weekly_values|tojson if weekly_values else [0, 0, 0, 0, 0, 0, 0]|tojson }};
+
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            const textColor = isDark ? '#94a3b8' : '#475569';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Study Minutes',
+                        data: dataValues,
+                        backgroundColor: 'rgba(6, 182, 212, 0.65)',
+                        borderColor: '#06b6d4',
+                        borderWidth: 1.5,
+                        borderRadius: 8,
+                        hoverBackgroundColor: 'rgba(6, 182, 212, 0.9)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#38bdf8',
+                            borderColor: 'rgba(56, 189, 248, 0.3)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y} mins focused`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: textColor, font: { family: 'Inter', size: 12 } }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, font: { family: 'Inter', size: 12 }, precision: 0 }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            syncStatus();
+            initWeeklyChart();
+            setInterval(syncStatus, 3000);
+        });
+    </script>
+</body>
+
+</html>
