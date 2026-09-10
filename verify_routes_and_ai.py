@@ -21,7 +21,7 @@ class TestFocusSenseSystemIntegrity(unittest.TestCase):
             self.assertEqual(res.status_code, 200, f"Route {route} failed with status {res.status_code}")
             print(f"PASS: {route} returned HTTP 200")
 
-    def test_ollama_ai_chat(self):
+    def test_ai_chat(self):
         res = ai_service.generate_chat_reply(
             prompt="What is process scheduling in operating systems in one short sentence?",
             conversation_history=[],
@@ -31,7 +31,9 @@ class TestFocusSenseSystemIntegrity(unittest.TestCase):
         self.assertTrue(res.get("success"), "AI chat failed")
         self.assertIn("reply", res)
         self.assertTrue(len(res["reply"]) > 10)
-        print(f"PASS: Ollama AI Chat returned valid reply from provider '{res.get('provider')}'")
+        provider = res.get("provider")
+        self.assertIn(provider, ["Cohere AI", "FocusSense Local AI"], f"Unexpected provider: {provider}")
+        print(f"PASS: AI Chat returned valid reply from provider '{provider}'")
 
     def test_quiz_and_recall_flow(self):
         topic = "Operating Systems"

@@ -3,7 +3,7 @@ FocusSense AI — Study Companion & Topic Grounding Service
 =========================================================
 Modular AI Service Architecture:
 - BaseAIProvider: Abstract interface for AI backends.
-- GeminiAIProvider: Official Google Gemini REST API integration.
+- CohereAIProvider: Official Cohere API integration (Primary Cloud AI Engine).
 - LocalMockAIProvider: Intelligent offline fallback with grounded pedagogical reasoning.
 - FocusSenseAIService: High-level orchestrator and facade.
 """
@@ -14,10 +14,34 @@ import json
 import logging
 from abc import ABC, abstractmethod
 
+def _load_local_env():
+    """Safely load .env if present in root for local development without third-party dependencies."""
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+_load_local_env()
+
 try:
     import requests
 except ImportError:
     requests = None
+
+try:
+    import cohere
+except ImportError:
+    cohere = None
 
 logger = logging.getLogger("FocusSenseAI")
 
@@ -860,6 +884,417 @@ class GeminiAIProvider(BaseAIProvider):
 
 
 # ---------------------------------------------------------------------------
+# Cohere AI Provider (Official Primary Cloud AI Provider)
+# ---------------------------------------------------------------------------
+
+class CohereAIProvider(BaseAIProvider):
+    """
+    Cohere Cloud Provider — Primary AI Engine for FocusSense.
+    Connects securely using COHERE_API_KEY from environment variables.
+    Supports official Cohere SDK (ClientV2) and robust direct REST execution with automatic failover.
+    """
+
+    DEFAULT_MODEL = os.environ.get("COHERE_MODEL", "command-a-plus-05-2026")
+    MODELS = [
+        "command-a-plus-05-2026",
+        "command-r-plus-08-2024",
+        "command-r-plus",
+        "command-r-08-2024",
+        "command-r",
+    ]
+
+    def __init__(self, api_key: str = None, model: str = None):
+        self.api_key = api_key or os.environ.get("COHERE_API_KEY")
+        self.model = model or os.environ.get("COHERE_MODEL", self.DEFAULT_MODEL)
+        self.endpoint = "https://api.cohere.com/v2/chat"
+        self.client = None
+
+        active_key = self.api_key or os.environ.get("COHERE_API_KEY")
+        if cohere and active_key and len(active_key.strip()) > 5:
+            try:
+                self.client = cohere.ClientV2(api_key=active_key)
+            except Exception:
+                try:
+                    self.client = cohere.Client(api_key=active_key)
+                except Exception:
+                    self.client = None
+
+    def is_configured(self) -> bool:
+        key = self.api_key or os.environ.get("COHERE_API_KEY")
+        return bool(key and len(key.strip()) > 5)
+
+    def is_available(self) -> bool:
+        """Compatibility alias for is_configured."""
+        return self.is_configured()
+
+    def get_info(self) -> dict:
+        curr_model = self.model or os.environ.get("COHERE_MODEL", self.DEFAULT_MODEL)
+        return {
+            "name": "Cohere AI",
+            "model": curr_model,
+            "type": "cloud",
+            "active": self.is_configured(),
+        }
+
+    def _call_cohere_api(self, messages: list, temperature: float = 0.3,
+                         max_tokens: int = 1000, timeout: float = 5.0) -> tuple:
+        """
+        Execute API call across candidate models with application-level responsiveness safeguards.
+        Returns (response_text, successful_model_name) or (None, None).
+        """
+        if not self.is_configured():
+            return None, None
+
+        candidates = [self.model] + [m for m in self.MODELS if m != self.model]
+        seen = set()
+        models_to_try = [m for m in candidates if not (m in seen or seen.add(m))]
+
+        for mod in models_to_try:
+            # 1. Try Cohere SDK if available
+            if self.client and hasattr(self.client, "chat"):
+                try:
+                    resp = self.client.chat(
+                        model=mod,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    if hasattr(resp, "message") and hasattr(resp.message, "content"):
+                        content_parts = resp.message.content
+                        if content_parts and len(content_parts) > 0:
+                            txt = getattr(content_parts[0], "text", None) or str(content_parts[0])
+                            if txt and txt.strip():
+                                return txt.strip(), mod
+                    elif hasattr(resp, "text") and resp.text:
+                        return resp.text.strip(), mod
+                except Exception as ex:
+                    logger.warning(f"Cohere SDK call failed for model {mod}: {ex}")
+
+            # 2. Direct HTTP REST API via requests (zero overhead, precise timeout)
+            if requests:
+                try:
+                    headers = {
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    }
+                    payload = {
+                        "model": mod,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    }
+                    res = requests.post(self.endpoint, json=payload, headers=headers, timeout=timeout)
+                    if res.status_code == 200:
+                        data = res.json()
+                        msg = data.get("message", {})
+                        content = msg.get("content", []) if isinstance(msg, dict) else msg
+                        if content and isinstance(content, list) and len(content) > 0:
+                            t = content[0].get("text", "").strip() if isinstance(content[0], dict) else str(content[0]).strip()
+                            if t:
+                                return t, mod
+                        elif isinstance(content, str) and content.strip():
+                            return content.strip(), mod
+                        elif "text" in data and data["text"]:
+                            return data["text"].strip(), mod
+                    elif res.status_code in (404, 422):
+                        logger.warning(f"Cohere model {mod} returned HTTP {res.status_code}, trying next fallback model...")
+                        continue
+                    elif res.status_code in (401, 403):
+                        logger.warning(f"Cohere authentication error (HTTP {res.status_code}): {res.text[:200]}")
+                        break
+                    else:
+                        logger.warning(f"Cohere API error for model {mod} (HTTP {res.status_code}): {res.text[:200]}")
+                        break
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Cohere request timed out after {timeout}s on model {mod}")
+                    break
+                except Exception as ex:
+                    logger.warning(f"Cohere REST request exception on model {mod}: {ex}")
+                    break
+
+        return None, None
+
+    def _format_messages(self, prompt: str, conversation_history: list = None,
+                         study_topic: str = "", student_name: str = "", learning_context: dict = None,
+                         material_context: dict = None) -> list:
+        topic_str = study_topic.strip() if study_topic else "General Academic Studies"
+        student_str = student_name.strip() if student_name else "Student"
+
+        # Adaptive pedagogical guidance based on student mastery
+        personalization_clause = ""
+        if learning_context:
+            tier = (learning_context.get("mastery_tier") or "").upper()
+            ret_score = learning_context.get("avg_retention_score") or learning_context.get("last_retention_score")
+            score_str = f"{ret_score}%" if ret_score is not None else ""
+            if tier == "WEAK" or (ret_score is not None and float(ret_score) < 60.0):
+                personalization_clause = (
+                    f"\n\nADAPTIVE PERSONALIZATION (Developing Mastery {score_str}): "
+                    f"The student previously struggled with this topic. Use simpler explanations, relatable intuitive analogies, "
+                    f"and concrete step-by-step examples before introducing formal technical terms. Ask gentle check questions."
+                )
+            elif tier == "STRONG" or (ret_score is not None and float(ret_score) >= 85.0):
+                personalization_clause = (
+                    f"\n\nADAPTIVE PERSONALIZATION (High Mastery {score_str}): "
+                    f"The student has demonstrated strong mastery in this topic. Provide deeper technical reasoning, "
+                    f"practical edge cases, architectural trade-offs, optimization techniques, and challenging conceptual connections."
+                )
+
+        # Material Grounding Clause (RAG)
+        material_clause = ""
+        if material_context and (material_context.get("found") or material_context.get("context_text")):
+            mat_title = material_context.get("material_title") or "Study Material"
+            mat_subject = material_context.get("subject") or "Academic Study"
+            mat_topic = material_context.get("topic") or mat_title
+            is_rel = material_context.get("is_relevant", True)
+            excerpts = material_context.get("context_text", "")
+
+            if is_rel and excerpts:
+                material_clause = (
+                    f"\n\n=======================================================\n"
+                    f"STUDY MATERIAL / REFERENCE CONTEXT: ACTIVATED\n"
+                    f"Active Material: '{mat_title}' (Subject: {mat_subject}, Topic: {mat_topic})\n"
+                    f"=======================================================\n"
+                    f"RELEVANT EXCERPTS FROM THE STUDENT'S UPLOADED STUDY MATERIAL:\n"
+                    f"{excerpts}\n\n"
+                    f"STRICT GROUNDING INSTRUCTIONS:\n"
+                    f"1. Base your answer primarily on the uploaded study material excerpts provided above.\n"
+                    f"2. Cite key terminology, definitions, and concepts directly from the material.\n"
+                    f"3. If the answer is not present in the excerpts, clearly state:\n"
+                    f"   '⚠️ Note: I couldn't find this specific detail in your uploaded study material.'\n"
+                    f"   and then provide concise general educational guidance.\n"
+                )
+            else:
+                material_clause = (
+                    f"\n\n=======================================================\n"
+                    f"STUDY MATERIAL MODE: '{mat_title}'\n"
+                    f"=======================================================\n"
+                    f"The student asked a question, but NO relevant excerpts were found in the uploaded material '{mat_title}'.\n"
+                    f"HONEST GROUNDING INSTRUCTION:\n"
+                    f"Start your response by explicitly informing the student:\n"
+                    f"'I couldn't find this clearly in the selected study material ({mat_title}).'\n"
+                    f"Then provide a helpful general academic explanation from your broader knowledge base."
+                )
+
+        system_instruction = (
+            f"You are FocusSense AI, an educational learning assistant.\n"
+            f"Your goal is to help students understand concepts, practice recall, identify misunderstandings, and improve learning.\n"
+            f"You are tutoring {student_str} on '{topic_str}'.\n"
+            f"When study material context is provided, prioritize that context.\n"
+            f"Explain concepts clearly and accurately.\n"
+            f"Use examples when useful.\n"
+            f"Encourage understanding rather than simple answer copying.\n"
+            f"Use clean Markdown formatting with clear headings, concise bullet points, and code blocks where relevant.\n"
+            f"{personalization_clause}"
+            f"{material_clause}"
+        )
+
+        messages = [{"role": "system", "content": system_instruction}]
+
+        if conversation_history:
+            for m in conversation_history[-8:]:
+                sender = (m.get("sender") or m.get("role") or "").lower()
+                text = m.get("message") or m.get("content") or m.get("text") or ""
+                if text and sender:
+                    role = "assistant" if sender in ("assistant", "ai", "bot") else "user"
+                    messages.append({"role": role, "content": text})
+
+        messages.append({"role": "user", "content": prompt})
+        return messages
+
+    def generate_reply(self, prompt: str, conversation_history: list = None,
+                       study_topic: str = "", student_name: str = "Student", learning_context: dict = None,
+                       material_context: dict = None) -> dict:
+        if not self.is_configured():
+            return {
+                "reply": "",
+                "provider": "Cohere AI",
+                "model": self.model,
+                "success": False,
+                "error": "COHERE_API_KEY is not configured.",
+            }
+
+        messages = self._format_messages(
+            prompt=prompt,
+            conversation_history=conversation_history,
+            study_topic=study_topic,
+            student_name=student_name,
+            learning_context=learning_context,
+            material_context=material_context,
+        )
+
+        # Application-level responsiveness safeguard: 5.0s timeout
+        reply_text, successful_model = self._call_cohere_api(messages, temperature=0.3, max_tokens=1000, timeout=5.0)
+
+        if reply_text:
+            return {
+                "reply": reply_text,
+                "provider": "Cohere AI",
+                "model": successful_model,
+                "success": True,
+                "error": None,
+            }
+
+        return {
+            "reply": "",
+            "provider": "Cohere AI",
+            "model": self.model,
+            "success": False,
+            "error": "Cohere API request failed.",
+        }
+
+    def generate_quiz(self, topic: str, conversation_history: list = None, question_count: int = 3,
+                      adaptive_guidance: str = None, material_excerpts: str = None) -> list:
+        if not self.is_configured():
+            return []
+
+        history = conversation_history or []
+        chat_context = "\n".join([f"{m.get('sender')}: {m.get('message')}" for m in history[-6:]]) if history else ""
+        mat_clause = f"\nStudy Material Excerpts:\n{material_excerpts}\n" if material_excerpts else ""
+        prompt = (
+            f"Generate exactly {question_count} conceptual learning verification questions for a student who studied '{topic}'.\n"
+            f"Session Context:\n{chat_context}\n"
+            f"{mat_clause}\n"
+            f"Format as valid JSON array of objects with keys:\n"
+            f"- question_index (integer, 1-indexed)\n"
+            f"- question_text (string)\n"
+            f"- sub_concept (string, e.g. 'FCFS Scheduling', 'Time Quantum')\n"
+            f"- sample_answer (string, complete rubric explanation)\n"
+            f"- points_possible (float, 1.0)\n\n"
+            f"Return ONLY valid JSON."
+        )
+
+        messages = [
+            {"role": "system", "content": "You are FocusSense AI, an expert academic evaluation and quiz generation engine. Always respond with raw valid JSON only."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # Application-level responsiveness safeguard: 5.0s timeout
+        text, _ = self._call_cohere_api(messages, temperature=0.2, max_tokens=1000, timeout=5.0)
+        if text:
+            try:
+                clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.MULTILINE).strip()
+                questions = json.loads(clean_json)
+                if isinstance(questions, list) and len(questions) > 0:
+                    return questions
+                elif isinstance(questions, dict) and "questions" in questions:
+                    return questions["questions"]
+            except Exception as ex:
+                logger.warning(f"Cohere quiz generation parse failed: {ex}")
+
+        return []
+
+    def evaluate_answer(self, question_text: str, sub_concept: str,
+                        sample_answer: str, student_answer: str) -> dict:
+        if not self.is_configured():
+            return {}
+
+        prompt = (
+            f"You are an expert academic evaluator. Grade the student's answer.\n"
+            f"Topic/Concept: {sub_concept}\n"
+            f"Question: {question_text}\n"
+            f"Sample Ideal Answer / Rubric: {sample_answer}\n"
+            f"Student Answer: {student_answer}\n\n"
+            f"Evaluate conceptually (do NOT require exact phrasing). Return JSON with keys:\n"
+            f"- status: 'correct' (accurate, complete), 'partial' (partially accurate/missing key aspect), or 'incorrect' (wrong, irrelevant, or major misconception)\n"
+            f"- score: float (1.0 for correct, 0.5 for partial, 0.0 for incorrect)\n"
+            f"- feedback: 1-2 sentences of encouraging, precise feedback explaining what was right or missing\n\n"
+            f"Return ONLY valid JSON."
+        )
+
+        messages = [
+            {"role": "system", "content": "You are FocusSense AI, an academic grading engine. Always evaluate objectively and return raw valid JSON only."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # Application-level responsiveness safeguard: 4.5s timeout
+        text, _ = self._call_cohere_api(messages, temperature=0.1, max_tokens=400, timeout=4.5)
+        if text:
+            try:
+                clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.MULTILINE).strip()
+                evaluation = json.loads(clean_json)
+                if "status" in evaluation and "score" in evaluation:
+                    evaluation["success"] = True
+                    return evaluation
+            except Exception as ex:
+                logger.warning(f"Cohere answer evaluation parse failed: {ex}")
+
+        return {}
+
+    def generate_assessment_questions(self, topic: str, mode: str = "PRACTICE", difficulty: str = "mixed",
+                                      question_count: int = 5, conversation_history: list = None,
+                                      material_excerpts: str = None) -> list:
+        if not self.is_configured():
+            return []
+
+        history = conversation_history or []
+        chat_context = "\n".join([f"{m.get('sender')}: {m.get('message')}" for m in history[-4:]]) if history else ""
+        mat_clause = f"\nStudy Material Excerpts:\n{material_excerpts}\n" if material_excerpts else ""
+
+        prompt = (
+            f"Generate exactly {question_count} high-quality assessment questions on: '{topic}'.\n"
+            f"Mode: {mode} | Difficulty: {difficulty}\n"
+            f"{chat_context}\n{mat_clause}\n"
+            f"Format as valid JSON array of objects with keys:\n"
+            f"- question_index (integer, 1-indexed)\n"
+            f"- question_text (string)\n"
+            f"- sub_concept (string)\n"
+            f"- question_type (string: 'mcq' | 'true_false' | 'short_answer' | 'conceptual' | 'application' | 'problem_solving')\n"
+            f"- category (string: 'recall' | 'concept' | 'application' | 'problem_solving')\n"
+            f"- difficulty (string: 'basic' | 'medium' | 'advanced')\n"
+            f"- options (list of strings for mcq or true_false, e.g. ['A) ...', 'B) ...', 'C) ...', 'D) ...']; null for free text)\n"
+            f"- correct_option (string e.g. 'A' or 'True'; null for free text)\n"
+            f"- sample_answer (string, rubric explanation)\n"
+            f"- explanation (string, brief rationale)\n"
+            f"- points_possible (float, 1.0)\n\n"
+            f"Return ONLY valid JSON."
+        )
+
+        messages = [
+            {"role": "system", "content": "You are FocusSense AI, an assessment question design engine. Return raw valid JSON only."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # Application-level responsiveness safeguard: 6.0s timeout
+        text, _ = self._call_cohere_api(messages, temperature=0.3, max_tokens=1500, timeout=6.0)
+        if text:
+            try:
+                clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.MULTILINE).strip()
+                parsed = json.loads(clean_json)
+                if isinstance(parsed, list):
+                    return parsed[:question_count]
+                elif isinstance(parsed, dict) and "questions" in parsed:
+                    return parsed["questions"][:question_count]
+            except Exception as ex:
+                logger.warning(f"Cohere assessment generation parse failed: {ex}")
+
+        return []
+
+    def explain_assessment_mistake(self, question_text: str, student_answer: str,
+                                  ideal_answer: str, sub_concept: str, topic: str) -> str:
+        if not self.is_configured():
+            return ""
+
+        prompt = (
+            f"You are FocusSense AI, an empathetic academic tutor.\n"
+            f"The student answered an assessment question incorrectly on Topic: '{topic}' (Concept: '{sub_concept}').\n\n"
+            f"Question: {question_text}\n"
+            f"Ideal Answer: {ideal_answer}\n"
+            f"Student Answer: {student_answer}\n\n"
+            f"Provide a constructive 2-paragraph Socratic explanation in clean Markdown clarifying what was missed and giving a memorable rule of thumb."
+        )
+
+        messages = [
+            {"role": "system", "content": "You are FocusSense AI, an empathetic Socratic tutor."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # Application-level responsiveness safeguard: 4.5s timeout
+        text, _ = self._call_cohere_api(messages, temperature=0.4, max_tokens=400, timeout=4.5)
+        return text or ""
+
+
+# ---------------------------------------------------------------------------
 # Local Offline Dynamic Heuristic Fallback Provider
 # ---------------------------------------------------------------------------
 
@@ -1695,30 +2130,28 @@ class LocalMockAIProvider(BaseAIProvider):
 class FocusSenseAIService:
     """
     Main Service orchestrator.
-    Prioritizes local Ollama inference, falls back to Gemini API (if key is set),
-    or provides high-quality offline guidance.
+    Primary: Cohere Cloud AI Engine.
+    Fallback: LocalMockAIProvider (deterministic, instant offline pedagogical reasoning).
     """
 
     def __init__(self):
-        self.ollama_provider = OllamaAIProvider()
-        self.gemini_provider = GeminiAIProvider()
+        self.cohere_provider = CohereAIProvider()
         self.local_provider = LocalMockAIProvider()
+        # Backward-compatibility alias for legacy test fixtures
+        self.ollama_provider = self.cohere_provider
         self.force_local = os.environ.get("FORCE_LOCAL_AI", "").lower() in ("1", "true", "yes")
 
     def get_active_provider_info(self) -> dict:
-        if not self.force_local and self.ollama_provider.is_available():
-            return self.ollama_provider.get_info()
-        if not self.force_local and self.gemini_provider.is_configured():
-            return self.gemini_provider.get_info()
+        if not self.force_local and self.cohere_provider.is_configured():
+            return self.cohere_provider.get_info()
         return self.local_provider.get_info()
 
-    def generate_chat_reply(self, prompt: str, conversation_history: list,
-                            study_topic: str, student_name: str, learning_context: dict = None,
+    def generate_chat_reply(self, prompt: str, conversation_history: list = None,
+                            study_topic: str = "", student_name: str = "Student", learning_context: dict = None,
                             material_context: dict = None) -> dict:
-        if not self.force_local:
-            # Priority 1: Local Ollama LLM
-            if self.ollama_provider.is_available():
-                result = self.ollama_provider.generate_reply(
+        if not self.force_local and self.cohere_provider.is_configured():
+            try:
+                result = self.cohere_provider.generate_reply(
                     prompt=prompt,
                     conversation_history=conversation_history,
                     study_topic=study_topic,
@@ -1726,24 +2159,14 @@ class FocusSenseAIService:
                     learning_context=learning_context,
                     material_context=material_context,
                 )
-                if result.get("success"):
+                if result and result.get("success") and result.get("reply"):
+                    result["fallback_used"] = False
                     return result
+            except Exception as ex:
+                logger.warning(f"Cohere chat reply failed, falling back to local provider: {ex}")
 
-            # Priority 2: Gemini Cloud API (if configured)
-            if self.gemini_provider.is_configured():
-                result = self.gemini_provider.generate_reply(
-                    prompt=prompt,
-                    conversation_history=conversation_history,
-                    study_topic=study_topic,
-                    student_name=student_name,
-                    learning_context=learning_context,
-                    material_context=material_context,
-                )
-                if result.get("success"):
-                    return result
-
-        # Priority 3: Local intelligent fallback guidance
-        local_res = self.local_provider.generate_reply(
+        # Fallback to local intelligent provider
+        res = self.local_provider.generate_reply(
             prompt=prompt,
             conversation_history=conversation_history,
             study_topic=study_topic,
@@ -1751,89 +2174,70 @@ class FocusSenseAIService:
             learning_context=learning_context,
             material_context=material_context,
         )
-        if local_res.get("success"):
-            return local_res
+        res["fallback_used"] = True
+        return res
 
-        if self.ollama_provider.is_available():
-            return self.ollama_provider.generate_reply(
-                prompt=prompt,
-                conversation_history=conversation_history,
-                study_topic=study_topic,
-                student_name=student_name,
-                learning_context=learning_context,
-                material_context=material_context,
-            )
-
-        return local_res
-
-    def generate_quiz(self, topic: str, conversation_history: list = None, question_count: int = 3, adaptive_guidance: str = None, material_excerpts: str = None) -> list:
-        if not self.force_local:
-            # 1. Try Ollama local LLM
-            if self.ollama_provider.is_available():
-                questions = self.ollama_provider.generate_quiz(topic, conversation_history, question_count, adaptive_guidance, material_excerpts)
-                if questions:
+    def generate_quiz(self, topic: str, conversation_history: list = None, question_count: int = 3,
+                      adaptive_guidance: str = None, material_excerpts: str = None,
+                      num_questions: int = None) -> list:
+        effective_count = num_questions if num_questions is not None else question_count
+        if not self.force_local and self.cohere_provider.is_configured():
+            try:
+                questions = self.cohere_provider.generate_quiz(topic, conversation_history, effective_count, adaptive_guidance, material_excerpts)
+                if questions and len(questions) > 0:
                     return questions
+            except Exception as ex:
+                logger.warning(f"Cohere quiz generation failed, falling back to local provider: {ex}")
 
-            # 2. Try Gemini API
-            if self.gemini_provider.is_configured():
-                questions = self.gemini_provider.generate_quiz(topic, conversation_history, question_count, adaptive_guidance, material_excerpts)
-                if questions:
-                    return questions
-
-        # 3. Dynamic grounded heuristic fallback
-        return self.local_provider.generate_quiz(topic, conversation_history, question_count, adaptive_guidance, material_excerpts)
+        return self.local_provider.generate_quiz(topic, conversation_history, effective_count, adaptive_guidance, material_excerpts)
 
     def generate_assessment_questions(self, topic: str, mode: str = "PRACTICE", difficulty: str = "mixed",
                                       question_count: int = 5, conversation_history: list = None,
-                                      material_excerpts: str = None) -> list:
-        if not self.force_local:
-            # 1. Try Ollama local LLM
-            if self.ollama_provider.is_available():
-                questions = self.ollama_provider.generate_assessment_questions(topic, mode, difficulty, question_count, conversation_history, material_excerpts)
-                if questions:
+                                      material_excerpts: str = None, num_questions: int = None) -> list:
+        effective_count = num_questions if num_questions is not None else question_count
+        if not self.force_local and self.cohere_provider.is_configured():
+            try:
+                questions = self.cohere_provider.generate_assessment_questions(topic, mode, difficulty, effective_count, conversation_history, material_excerpts)
+                if questions and len(questions) > 0:
                     return questions
+            except Exception as ex:
+                logger.warning(f"Cohere assessment generation failed, falling back to local provider: {ex}")
 
-            # 2. Try Gemini API
-            if self.gemini_provider.is_configured():
-                questions = self.gemini_provider.generate_assessment_questions(topic, mode, difficulty, question_count, conversation_history, material_excerpts)
-                if questions:
-                    return questions
+        return self.local_provider.generate_assessment_questions(topic, mode, difficulty, effective_count, conversation_history, material_excerpts)
 
-        # 3. Local intelligent fallback
-        return self.local_provider.generate_assessment_questions(topic, mode, difficulty, question_count, conversation_history, material_excerpts)
-
-    def evaluate_answer(self, question_text: str, sub_concept: str,
-                        sample_answer: str, student_answer: str) -> dict:
-        if not self.force_local:
-            # 1. Try Ollama local LLM
-            if self.ollama_provider.is_available():
-                res = self.ollama_provider.evaluate_answer(question_text, sub_concept, sample_answer, student_answer)
+    def evaluate_answer(self, question_text: str = "", sub_concept: str = "",
+                        sample_answer: str = "", student_answer: str = "",
+                        question: str = None, rubric: str = None) -> dict:
+        q_text = question_text or question or ""
+        sub_c = sub_concept or rubric or "General Concept"
+        s_ans = sample_answer or rubric or ""
+        if not self.force_local and self.cohere_provider.is_configured():
+            try:
+                res = self.cohere_provider.evaluate_answer(q_text, sub_c, s_ans, student_answer)
                 if res and res.get("success"):
+                    res["verdict"] = res.get("status")
                     return res
+            except Exception as ex:
+                logger.warning(f"Cohere answer evaluation failed, falling back to local provider: {ex}")
 
-            # 2. Try Gemini API
-            if self.gemini_provider.is_configured():
-                res = self.gemini_provider.evaluate_answer(question_text, sub_concept, sample_answer, student_answer)
-                if res and res.get("success"):
-                    return res
-
-        # 3. Local semantic rubric engine
-        return self.local_provider.evaluate_answer(question_text, sub_concept, sample_answer, student_answer)
+        res = self.local_provider.evaluate_answer(q_text, sub_c, s_ans, student_answer)
+        res["verdict"] = res.get("status")
+        return res
 
     def explain_assessment_mistake(self, question_text: str, student_answer: str,
-                                  ideal_answer: str, sub_concept: str, topic: str) -> str:
-        if not self.force_local:
-            if self.ollama_provider.is_available():
-                res = self.ollama_provider.explain_assessment_mistake(question_text, student_answer, ideal_answer, sub_concept, topic)
+                                  ideal_answer: str = "", sub_concept: str = "", topic: str = "",
+                                  correct_answer: str = None, rubric: str = None) -> str:
+        i_ans = ideal_answer or correct_answer or rubric or ""
+        sub_c = sub_concept or rubric or "Core Concept"
+        if not self.force_local and self.cohere_provider.is_configured():
+            try:
+                res = self.cohere_provider.explain_assessment_mistake(question_text, student_answer, i_ans, sub_c, topic)
                 if res:
                     return res
+            except Exception as ex:
+                logger.warning(f"Cohere mistake explanation failed, falling back to local provider: {ex}")
 
-            if self.gemini_provider.is_configured():
-                res = self.gemini_provider.explain_assessment_mistake(question_text, student_answer, ideal_answer, sub_concept, topic)
-                if res:
-                    return res
-
-        return self.local_provider.explain_assessment_mistake(question_text, student_answer, ideal_answer, sub_concept, topic)
+        return self.local_provider.explain_assessment_mistake(question_text, student_answer, i_ans, sub_c, topic)
 
     def generate_title(self, prompt: str, topic: str = "") -> str:
         """Generate a concise 2 to 4 word title for a study conversation thread."""
