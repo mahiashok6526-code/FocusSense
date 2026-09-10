@@ -1653,10 +1653,18 @@
         async function submitSingleAnswer(questionId, answer) {
             if (!currentAttemptId) return;
             try {
+                const q = activeQuestions ? activeQuestions.find(x => x.id === questionId) : null;
                 await fetch(`/api/assessment/${currentAttemptId}/submit-answer`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question_id: questionId, student_answer: answer })
+                    body: JSON.stringify({
+                        question_id: questionId,
+                        student_answer: answer,
+                        question_text: q ? q.question_text : "",
+                        sub_concept: q ? q.sub_concept : "",
+                        sample_answer: q ? (q.sample_answer || "") : "",
+                        points_possible: q ? (q.points_possible || 1.0) : 1.0
+                    })
                 });
             } catch (err) {
                 console.warn('Silent answer save failed:', err);

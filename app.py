@@ -1550,11 +1550,27 @@ def quiz_submit_answer():
     data = request.get_json(silent=True) or {}
     question_id = data.get("question_id")
     student_answer = data.get("student_answer", "")
+    question_text = data.get("question_text")
+    sub_concept = data.get("sub_concept")
+    sample_answer = data.get("sample_answer")
+    points_possible = data.get("points_possible", 1.0)
+    topic = data.get("topic") or session.get("study_topic")
+    quiz_id = data.get("quiz_id")
 
     if not question_id:
         return jsonify({"success": False, "error": "Missing question_id"}), 400
 
-    result = evaluate_student_answer(question_id=question_id, student_answer=student_answer, user_id=user_id)
+    result = evaluate_student_answer(
+        question_id=question_id,
+        student_answer=student_answer,
+        user_id=user_id,
+        question_text=question_text,
+        sub_concept=sub_concept,
+        sample_answer=sample_answer,
+        points_possible=float(points_possible or 1.0),
+        topic=topic,
+        quiz_id=quiz_id
+    )
     return jsonify(result)
 
 
@@ -1628,6 +1644,18 @@ def recall_start():
             return jsonify({"success": False, "error": "No active recall task found"}), 404
 
     result = start_recall_test(task_id=task_id, user_id=user_id, question_count=question_count)
+    if result.get("success"):
+        # Store in signed Flask session cookie for serverless multi-instance persistence
+        session["active_recall_quiz"] = {
+            "task_id": task_id,
+            "quiz_id": result.get("quiz_id"),
+            "topic": result.get("topic"),
+            "questions": {
+                str(q["id"]): q for q in result.get("questions", [])
+            }
+        }
+        session["active_recall_answers"] = {}
+
     return jsonify(result)
 
 
@@ -1645,7 +1673,44 @@ def recall_submit_answer():
     if not question_id:
         return jsonify({"success": False, "error": "Missing question_id"}), 400
 
-    result = submit_recall_answer(question_id=question_id, student_answer=student_answer, user_id=user_id)
+    # Retrieve metadata from request or fallback to signed session cookie
+    sess_quiz = session.get("active_recall_quiz") or {}
+    sess_q = sess_quiz.get("questions", {}).get(str(question_id)) or {}
+
+    question_text = data.get("question_text") or sess_q.get("question_text")
+    sub_concept = data.get("sub_concept") or sess_q.get("sub_concept")
+    sample_answer = data.get("sample_answer") or sess_q.get("sample_answer")
+    points_possible = data.get("points_possible") or sess_q.get("points_possible") or 1.0
+    topic = data.get("topic") or sess_quiz.get("topic") or session.get("study_topic")
+    task_id = data.get("task_id") or sess_quiz.get("task_id")
+    quiz_id = sess_quiz.get("quiz_id")
+
+    result = submit_recall_answer(
+        question_id=question_id,
+        student_answer=student_answer,
+        user_id=user_id,
+        question_text=question_text,
+        sub_concept=sub_concept,
+        sample_answer=sample_answer,
+        points_possible=float(points_possible or 1.0),
+        topic=topic,
+        task_id=task_id,
+        quiz_id=quiz_id
+    )
+
+    if result.get("success"):
+        answers = session.get("active_recall_answers") or {}
+        answers[str(question_id)] = {
+            "question_id": question_id,
+            "student_answer": student_answer,
+            "sub_concept": result.get("sub_concept") or sub_concept,
+            "points_possible": float(points_possible or 1.0),
+            "score_earned": result.get("score_earned", 0.0),
+            "status": result.get("status", "incorrect"),
+            "feedback": result.get("feedback") or result.get("ai_feedback"),
+        }
+        session["active_recall_answers"] = answers
+
     return jsonify(result)
 
 
@@ -1657,12 +1722,14 @@ def recall_complete():
 
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
-    task_id = data.get("task_id")
+    task_id = data.get("task_id") or session.get("active_recall_quiz", {}).get("task_id")
+    sess_answers = session.get("active_recall_answers") or {}
+    topic = data.get("topic") or session.get("active_recall_quiz", {}).get("topic") or session.get("study_topic")
 
-    if not task_id:
+    if not task_id and not sess_answers:
         return jsonify({"success": False, "error": "Missing task_id"}), 400
 
-    result = finalize_recall_test(task_id=task_id, user_id=user_id)
+    result = finalize_recall_test(task_id=task_id, user_id=user_id, session_answers=sess_answers, topic=topic)
     return jsonify(result)
 
 
@@ -1905,7 +1972,12 @@ def api_assessment_submit_answer(attempt_id):
         user_id=user_id,
         attempt_id=attempt_id,
         question_id=int(question_id),
-        student_answer=student_answer
+        student_answer=student_answer,
+        question_text=data.get("question_text"),
+        sub_concept=data.get("sub_concept"),
+        sample_answer=data.get("sample_answer"),
+        points_possible=float(data.get("points_possible") or 1.0),
+        topic=data.get("topic") or session.get("study_topic")
     )
 
     status_code = 200 if result.get("success") else 400

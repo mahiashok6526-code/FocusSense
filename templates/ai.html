@@ -2022,10 +2022,20 @@
             const feedbackArea = document.getElementById(`quizFeedbackArea-${questionId}`);
             if (feedbackArea) feedbackArea.innerHTML = `<span style="font-size: 11.5px; color: #06b6d4;">Grading answer...</span>`;
 
+            const q = (activeQuizState && activeQuizState.questions) ? activeQuizState.questions.find(x => x.id === questionId) : null;
             fetch("/api/quiz/submit-answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question_id: questionId, student_answer: text })
+                body: JSON.stringify({
+                    question_id: questionId,
+                    student_answer: text,
+                    question_text: q ? q.question_text : "",
+                    sub_concept: q ? q.sub_concept : "",
+                    sample_answer: q ? (q.sample_answer || "") : "",
+                    points_possible: q ? (q.points_possible || 1.0) : 1.0,
+                    quiz_id: activeQuizState ? activeQuizState.quiz_id : null,
+                    topic: activeQuizState ? activeQuizState.topic : ""
+                })
             })
             .then(res => res.json())
             .then(data => {

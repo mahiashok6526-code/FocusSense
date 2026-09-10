@@ -1411,7 +1411,13 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     question_id: q.id,
-                    student_answer: answerText
+                    student_answer: answerText,
+                    question_text: q.question_text,
+                    sub_concept: q.sub_concept,
+                    sample_answer: q.sample_answer || "",
+                    points_possible: q.points_possible || 1.0,
+                    topic: activeRecallTopic || (activeSession ? activeSession.topic : ""),
+                    task_id: currentRecallTaskId
                 })
             })
             .then(res => res.json())
@@ -1495,7 +1501,10 @@
             fetch("/api/recall/complete", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ task_id: currentRecallTaskId })
+                body: JSON.stringify({
+                    task_id: currentRecallTaskId,
+                    topic: activeRecallTopic || (activeSession ? activeSession.topic : "")
+                })
             })
             .then(res => res.json())
             .then(data => {

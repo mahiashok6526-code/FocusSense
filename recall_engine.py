@@ -319,6 +319,7 @@ def start_recall_test(task_id: int, user_id: int, question_count: int = 3) -> di
             "question_index": idx,
             "question_text": q_text,
             "sub_concept": sub_c,
+            "sample_answer": sample_ans,
             "difficulty": diff_str,
             "points_possible": pts,
             "answered": False,
@@ -350,9 +351,13 @@ def start_recall_test(task_id: int, user_id: int, question_count: int = 3) -> di
     }
 
 
-def submit_recall_answer(question_id: int, student_answer: str, user_id: int) -> dict:
+def submit_recall_answer(question_id: int, student_answer: str, user_id: int,
+                         question_text: str = None, sub_concept: str = None,
+                         sample_answer: str = None, points_possible: float = 1.0,
+                         topic: str = None, task_id: int = None, quiz_id: int = None) -> dict:
     """
     Evaluate student's answer, assign points (1.0, 0.5, 0.0), and update concept mastery.
+    Resilient to serverless multi-instance execution (Vercel/Lambda ephemeral storage).
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -366,9 +371,102 @@ def submit_recall_answer(question_id: int, student_answer: str, user_id: int) ->
     """, (question_id,))
     q_row = cursor.fetchone()
 
+    # If not found directly by ID (common in serverless ephemeral instances where DB is per-container),
+    # try matching by question_text or recreate the question row in this container's DB!
+    if not q_row and question_text:
+        cursor.execute("""
+            SELECT qq.id, qq.quiz_id, qq.question_text, qq.sub_concept, qq.sample_answer, qq.points_possible,
+                   sq.topic, sq.session_id
+            FROM quiz_questions qq
+            JOIN study_quizzes sq ON sq.id = qq.quiz_id
+            WHERE qq.question_text = ?
+        """, (question_text,))
+        q_row = cursor.fetchone()
+
+    if not q_row:
+        # Serverless Ephemeral Instance Resilience:
+        # When deployed on Vercel/serverless platforms, Request 2 (answer submission)
+        # may hit a different execution container whose local /tmp/users.db does not
+        # have the question created by Request 1.
+        # We gracefully reconstruct and persist the quiz, question, and task rows here.
+        now_iso = datetime.now().isoformat()
+
+        resolved_topic = topic
+        resolved_session_id = None
+        if task_id:
+            try:
+                cursor.execute("SELECT topic, session_id, quiz_id FROM recall_tasks WHERE id = ?", (task_id,))
+                t_row = cursor.fetchone()
+                if t_row:
+                    resolved_topic = resolved_topic or t_row["topic"]
+                    resolved_session_id = t_row["session_id"]
+                    quiz_id = quiz_id or t_row["quiz_id"]
+            except Exception:
+                pass
+
+        resolved_topic = (resolved_topic or "General Academic Study").strip()
+        sub_concept = (sub_concept or "Core Concept").strip()
+        question_text = (question_text or f"Explain the core mechanisms and significance of {sub_concept}.").strip()
+        points_possible = float(points_possible or 1.0)
+
+        # Resolve sample answer if missing
+        if not sample_answer:
+            sample_answer = f"Accurate conceptual explanation of {sub_concept} within {resolved_topic}."
+            sub_c_lower = sub_concept.lower()
+            if "fcfs" in sub_c_lower:
+                sample_answer = "FCFS executes processes in arrival order non-preemptively. The convoy effect occurs when short CPU processes wait behind a long CPU-bound process, causing high average waiting time."
+            elif "round robin" in sub_c_lower:
+                sample_answer = "Round Robin assigns each process a fixed time quantum. If too small, context switching overhead degrades throughput."
+            elif "primitive" in sub_c_lower:
+                sample_answer = "Primitive types store raw values on the stack, while reference types store addresses pointing to heap objects."
+
+        # Ensure a study_quizzes row exists
+        if quiz_id:
+            cursor.execute("SELECT id FROM study_quizzes WHERE id = ?", (quiz_id,))
+            if not cursor.fetchone():
+                cursor.execute("""
+                    INSERT INTO study_quizzes (id, user_id, session_id, topic, total_questions, score_pct, created_at)
+                    VALUES (?, ?, ?, ?, 3, 0.0, ?)
+                """, (quiz_id, user_id, resolved_session_id, resolved_topic, now_iso))
+        else:
+            cursor.execute("""
+                INSERT INTO study_quizzes (user_id, session_id, topic, total_questions, score_pct, created_at)
+                VALUES (?, ?, ?, 3, 0.0, ?)
+            """, (user_id, resolved_session_id, resolved_topic, now_iso))
+            quiz_id = cursor.lastrowid
+
+        # Insert or replace question into quiz_questions
+        cursor.execute("""
+            INSERT OR REPLACE INTO quiz_questions (id, quiz_id, question_index, question_text, sub_concept, sample_answer, difficulty, points_possible)
+            VALUES (?, ?, 1, ?, ?, ?, 'conceptual', ?)
+        """, (question_id, quiz_id, question_text, sub_concept, sample_answer, points_possible))
+
+        # Ensure recall_tasks row exists/is updated
+        if task_id:
+            cursor.execute("SELECT id FROM recall_tasks WHERE id = ?", (task_id,))
+            if cursor.fetchone():
+                cursor.execute("UPDATE recall_tasks SET quiz_id = ?, status = 'IN_PROGRESS' WHERE id = ?", (quiz_id, task_id))
+            else:
+                cursor.execute("""
+                    INSERT INTO recall_tasks (id, user_id, session_id, topic, quiz_id, status, scheduled_for, created_at)
+                    VALUES (?, ?, ?, ?, ?, 'IN_PROGRESS', ?, ?)
+                """, (task_id, user_id, resolved_session_id, resolved_topic, quiz_id, now_iso, now_iso))
+
+        conn.commit()
+
+        # Re-fetch q_row
+        cursor.execute("""
+            SELECT qq.id, qq.quiz_id, qq.question_text, qq.sub_concept, qq.sample_answer, qq.points_possible,
+                   sq.topic, sq.session_id
+            FROM quiz_questions qq
+            JOIN study_quizzes sq ON sq.id = qq.quiz_id
+            WHERE qq.id = ?
+        """, (question_id,))
+        q_row = cursor.fetchone()
+
     if not q_row:
         conn.close()
-        return {"success": False, "error": "Question not found"}
+        return {"success": False, "error": "Question could not be resolved"}
 
     quiz_id = q_row["quiz_id"]
     topic = q_row["topic"]
@@ -463,10 +561,11 @@ def submit_recall_answer(question_id: int, student_answer: str, user_id: int) ->
     }
 
 
-def finalize_recall_test(task_id: int, user_id: int) -> dict:
+def finalize_recall_test(task_id: int, user_id: int, session_answers: dict = None, topic: str = None) -> dict:
     """
     Finalize recall test, calculate retention score %, update recall_tasks & study_quizzes,
     and generate explainable retention and revision recommendations.
+    Resilient to serverless multi-instance execution (Vercel/Lambda ephemeral storage).
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -479,28 +578,45 @@ def finalize_recall_test(task_id: int, user_id: int) -> dict:
     """, (task_id, user_id))
     task_row = cursor.fetchone()
 
-    if not task_row or not task_row["quiz_id"]:
+    quiz_id = task_row["quiz_id"] if task_row and task_row["quiz_id"] else None
+    resolved_topic = task_row["topic"] if task_row and task_row["topic"] else (topic or "General Academic Study")
+    session_id = task_row["session_id"] if task_row else None
+    session_duration = (task_row["duration"] if task_row else 0) or 0
+
+    # Retrieve all questions and answers from database
+    rows = []
+    if quiz_id:
+        cursor.execute("""
+            SELECT qq.id, qq.sub_concept, qq.points_possible,
+                   qa.evaluation_status, qa.score_earned, qa.feedback_text
+            FROM quiz_questions qq
+            LEFT JOIN quiz_answers qa ON qa.question_id = qq.id AND qa.user_id = ?
+            WHERE qq.quiz_id = ?
+            ORDER BY qq.question_index ASC
+        """, (user_id, quiz_id))
+        rows = cursor.fetchall()
+
+    # Fallback to session_answers if DB rows were empty (cross-instance serverless jump)
+    if not rows and session_answers:
+        rows = [
+            {
+                "id": a.get("question_id"),
+                "sub_concept": a.get("sub_concept") or "Core Concept",
+                "points_possible": float(a.get("points_possible", 1.0)),
+                "evaluation_status": a.get("status") or "unanswered",
+                "score_earned": float(a.get("score_earned", 0.0)),
+                "feedback_text": a.get("feedback") or "",
+            }
+            for a in session_answers.values()
+        ]
+
+    if not task_row and not rows:
         conn.close()
-        return {"success": False, "error": "Recall task or quiz not found"}
+        return {"success": False, "error": "Recall task or answers not found"}
 
-    quiz_id = task_row["quiz_id"]
-    topic = task_row["topic"]
-    session_id = task_row["session_id"]
-    session_duration = task_row["duration"] or 0
-
-    # Retrieve all questions and answers
-    cursor.execute("""
-        SELECT qq.id, qq.sub_concept, qq.points_possible,
-               qa.evaluation_status, qa.score_earned, qa.feedback_text
-        FROM quiz_questions qq
-        LEFT JOIN quiz_answers qa ON qa.question_id = qq.id AND qa.user_id = ?
-        WHERE qq.quiz_id = ?
-        ORDER BY qq.question_index ASC
-    """, (user_id, quiz_id))
-    rows = cursor.fetchall()
-
-    total_possible = sum(float(r["points_possible"] or 1.0) for r in rows)
-    total_earned = sum(float(r["score_earned"] or 0.0) for r in rows)
+    topic = resolved_topic
+    total_possible = sum(float(r["points_possible"] or 1.0) for r in rows) if rows else 3.0
+    total_earned = sum(float(r["score_earned"] or 0.0) for r in rows) if rows else 0.0
     score_pct = int(round((total_earned / max(1.0, total_possible)) * 100.0))
 
     if score_pct >= 90:
@@ -708,6 +824,7 @@ def finalize_recall_test(task_id: int, user_id: int) -> dict:
         "quiz_id": quiz_id,
         "topic": topic,
         "retention_score": score_pct,
+        "score_pct": score_pct,
         "quality_label": quality_label,
         "mastery_tier": mastery_info.get("mastery_tier", "MEDIUM"),
         "avg_retention_score": mastery_info.get("avg_retention_score", score_pct),

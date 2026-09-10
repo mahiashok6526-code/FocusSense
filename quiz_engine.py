@@ -144,9 +144,13 @@ def create_or_get_session_quiz(user_id: int, session_id: int = None, topic: str 
     }
 
 
-def evaluate_student_answer(question_id: int, student_answer: str, user_id: int) -> dict:
+def evaluate_student_answer(question_id: int, student_answer: str, user_id: int,
+                            question_text: str = None, sub_concept: str = None,
+                            sample_answer: str = None, points_possible: float = 1.0,
+                            topic: str = None, quiz_id: int = None) -> dict:
     """
     Semantically grade a student's answer, record the attempt, and update running concept mastery.
+    Resilient to serverless multi-instance execution (ephemeral per-container SQLite).
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -160,6 +164,54 @@ def evaluate_student_answer(question_id: int, student_answer: str, user_id: int)
         WHERE qq.id = ?
     """, (question_id,))
     q_row = cursor.fetchone()
+
+    if not q_row and question_text:
+        cursor.execute("""
+            SELECT qq.id, qq.quiz_id, qq.question_text, qq.sub_concept, qq.sample_answer, qq.points_possible,
+                   sq.topic, sq.session_id
+            FROM quiz_questions qq
+            JOIN study_quizzes sq ON sq.id = qq.quiz_id
+            WHERE qq.question_text = ?
+        """, (question_text,))
+        q_row = cursor.fetchone()
+
+    if not q_row:
+        # Reconstruct quiz and question in this container's DB
+        now_iso = datetime.now().isoformat()
+        resolved_topic = (topic or "General Academic Studies").strip()
+        sub_concept = (sub_concept or "Core Concept").strip()
+        question_text = (question_text or f"Explain {sub_concept} in {resolved_topic}.").strip()
+        sample_answer = sample_answer or f"Accurate conceptual explanation of {sub_concept}."
+        points_possible = float(points_possible or 1.0)
+
+        if quiz_id:
+            cursor.execute("SELECT id FROM study_quizzes WHERE id = ?", (quiz_id,))
+            if not cursor.fetchone():
+                cursor.execute("""
+                    INSERT INTO study_quizzes (id, user_id, topic, total_questions, score_pct, created_at)
+                    VALUES (?, ?, ?, 3, 0.0, ?)
+                """, (quiz_id, user_id, resolved_topic, now_iso))
+        else:
+            cursor.execute("""
+                INSERT INTO study_quizzes (user_id, topic, total_questions, score_pct, created_at)
+                VALUES (?, ?, 3, 0.0, ?)
+            """, (user_id, resolved_topic, now_iso))
+            quiz_id = cursor.lastrowid
+
+        cursor.execute("""
+            INSERT OR REPLACE INTO quiz_questions (id, quiz_id, question_index, question_text, sub_concept, sample_answer, difficulty, points_possible)
+            VALUES (?, ?, 1, ?, ?, ?, 'conceptual', ?)
+        """, (question_id, quiz_id, question_text, sub_concept, sample_answer, points_possible))
+        conn.commit()
+
+        cursor.execute("""
+            SELECT qq.id, qq.quiz_id, qq.question_text, qq.sub_concept, qq.sample_answer, qq.points_possible,
+                   sq.topic, sq.session_id
+            FROM quiz_questions qq
+            JOIN study_quizzes sq ON sq.id = qq.quiz_id
+            WHERE qq.id = ?
+        """, (question_id,))
+        q_row = cursor.fetchone()
 
     if not q_row:
         conn.close()

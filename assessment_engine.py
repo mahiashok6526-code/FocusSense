@@ -337,13 +337,18 @@ def submit_assessment_answer(
     user_id: int,
     attempt_id: int,
     question_id: int,
-    student_answer: str
+    student_answer: str,
+    question_text: str = None,
+    sub_concept: str = None,
+    sample_answer: str = None,
+    points_possible: float = 1.0,
+    topic: str = None
 ) -> Dict[str, Any]:
     """
     Submits and server-side grades a single assessment question.
     - MCQ / True-False: Deterministic server-side check.
     - Short Answer / Conceptual: AI semantic rubric evaluation.
-    Updates concept_mastery immediately.
+    Updates concept_mastery immediately. Resilient to serverless multi-instance execution.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -365,7 +370,7 @@ def submit_assessment_answer(
         quiz_id = attempt_dict["quiz_id"]
         cursor.execute("SELECT topic FROM study_quizzes WHERE id = ?", (quiz_id,))
         qz_row = cursor.fetchone()
-        topic = qz_row["topic"] if qz_row and qz_row["topic"] else "General Academic Studies"
+        topic = qz_row["topic"] if qz_row and qz_row["topic"] else (topic or "General Academic Studies")
 
         # Fetch question details
         cursor.execute("""
@@ -373,6 +378,28 @@ def submit_assessment_answer(
         WHERE id = ? AND quiz_id = ?
         """, (question_id, quiz_id))
         question = cursor.fetchone()
+
+        if not question:
+            cursor.execute("SELECT * FROM quiz_questions WHERE id = ?", (question_id,))
+            question = cursor.fetchone()
+
+        if not question and question_text:
+            cursor.execute("SELECT * FROM quiz_questions WHERE question_text = ?", (question_text,))
+            question = cursor.fetchone()
+
+        if not question:
+            # Reconstruct question in this container's DB
+            sub_c = sub_concept or "Assessment Concept"
+            q_txt = question_text or f"Question on {sub_c}"
+            s_ans = sample_answer or f"Accurate conceptual explanation of {sub_c}."
+            pts = float(points_possible or 1.0)
+            cursor.execute("""
+                INSERT OR REPLACE INTO quiz_questions (id, quiz_id, question_index, question_text, sub_concept, sample_answer, difficulty, points_possible)
+                VALUES (?, ?, 1, ?, ?, ?, 'conceptual', ?)
+            """, (question_id, quiz_id, q_txt, sub_c, s_ans, pts))
+            conn.commit()
+            cursor.execute("SELECT * FROM quiz_questions WHERE id = ?", (question_id,))
+            question = cursor.fetchone()
 
         if not question:
             return {"success": False, "error": "Question not found in this assessment."}

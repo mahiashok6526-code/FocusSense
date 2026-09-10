@@ -522,8 +522,8 @@ class GeminiAIProvider(BaseAIProvider):
     Connects securely using GEMINI_API_KEY or GOOGLE_API_KEY from environment variables.
     """
 
-    DEFAULT_MODEL = "gemini-2.5-flash"
-    FALLBACK_MODEL = "gemini-1.5-flash"
+    DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+    MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
 
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
@@ -539,6 +539,34 @@ class GeminiAIProvider(BaseAIProvider):
             "type": "cloud",
             "active": self.is_configured(),
         }
+
+    def _call_gemini_api(self, payload: dict, timeout: int = 15) -> tuple:
+        """
+        Execute API call across candidate models (DEFAULT_MODEL + fallbacks).
+        Returns (response_json_dict, successful_model_name) or (None, None).
+        """
+        if not self.is_configured():
+            return None, None
+
+        candidates = [self.DEFAULT_MODEL] + [m for m in self.MODELS if m != self.DEFAULT_MODEL]
+        seen = set()
+        models_to_try = [m for m in candidates if not (m in seen or seen.add(m))]
+
+        for model in models_to_try:
+            url = f"{self.endpoint_base}/{model}:generateContent?key={self.api_key}"
+            try:
+                res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=timeout)
+                if res.status_code == 200:
+                    return res.json(), model
+                elif res.status_code in (404, 429):
+                    logger.warning(f"Gemini model {model} returned HTTP {res.status_code}, trying next model...")
+                    continue
+                else:
+                    logger.warning(f"Gemini API error on model {model} (HTTP {res.status_code}): {res.text[:200]}")
+            except Exception as ex:
+                logger.warning(f"Gemini request exception for model {model}: {ex}")
+
+        return None, None
 
     def generate_reply(self, prompt: str, conversation_history: list,
                        study_topic: str, student_name: str, learning_context: dict = None,
@@ -627,29 +655,21 @@ class GeminiAIProvider(BaseAIProvider):
             }
         }
 
-        models_to_try = [self.DEFAULT_MODEL, self.FALLBACK_MODEL]
-        for model in models_to_try:
-            url = f"{self.endpoint_base}/{model}:generateContent?key={self.api_key}"
-            try:
-                response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=12)
-                if response.status_code == 200:
-                    data = response.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        reply_text = candidates[0]["content"]["parts"][0]["text"]
+        data, model = self._call_gemini_api(payload, timeout=14)
+        if data:
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    reply_text = parts[0].get("text", "").strip()
+                    if reply_text:
                         return {
-                            "reply": reply_text.strip(),
+                            "reply": reply_text,
                             "provider": "Gemini AI",
                             "model": model,
                             "success": True,
                             "error": None,
                         }
-                elif response.status_code == 404:
-                    continue
-                else:
-                    logger.warning(f"Gemini API HTTP {response.status_code}: {response.text[:200]}")
-            except Exception as ex:
-                logger.warning(f"Error connecting to Gemini model {model}: {ex}")
 
         return {
             "reply": "",
@@ -684,17 +704,20 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1000}
         }
 
-        url = f"{self.endpoint_base}/{self.DEFAULT_MODEL}:generateContent?key={self.api_key}"
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=12)
-            if res.status_code == 200:
-                raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                clean_json = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
-                questions = json.loads(clean_json)
-                if isinstance(questions, list) and len(questions) > 0:
-                    return questions
-        except Exception as ex:
-            logger.warning(f"Gemini quiz generation failed: {ex}")
+        data, model = self._call_gemini_api(payload, timeout=14)
+        if data:
+            try:
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        raw = parts[0].get("text", "").strip()
+                        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+                        questions = json.loads(clean_json)
+                        if isinstance(questions, list) and len(questions) > 0:
+                            return questions
+            except Exception as ex:
+                logger.warning(f"Gemini quiz generation parse failed: {ex}")
         return []
 
     def evaluate_answer(self, question_text: str, sub_concept: str,
@@ -720,18 +743,21 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 400}
         }
 
-        url = f"{self.endpoint_base}/{self.DEFAULT_MODEL}:generateContent?key={self.api_key}"
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
-            if res.status_code == 200:
-                raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                clean_json = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
-                evaluation = json.loads(clean_json)
-                if "status" in evaluation and "score" in evaluation:
-                    evaluation["success"] = True
-                    return evaluation
-        except Exception as ex:
-            logger.warning(f"Gemini answer evaluation failed: {ex}")
+        data, model = self._call_gemini_api(payload, timeout=12)
+        if data:
+            try:
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        raw = parts[0].get("text", "").strip()
+                        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+                        evaluation = json.loads(clean_json)
+                        if "status" in evaluation and "score" in evaluation:
+                            evaluation["success"] = True
+                            return evaluation
+            except Exception as ex:
+                logger.warning(f"Gemini answer evaluation parse failed: {ex}")
         return {}
 
     def generate_assessment_questions(self, topic: str, mode: str = "PRACTICE", difficulty: str = "mixed",
@@ -768,19 +794,22 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1500}
         }
 
-        url = f"{self.endpoint_base}/{self.DEFAULT_MODEL}:generateContent?key={self.api_key}"
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
-            if res.status_code == 200:
-                raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                clean_json = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
-                parsed = json.loads(clean_json)
-                if isinstance(parsed, list):
-                    return parsed[:question_count]
-                elif isinstance(parsed, dict) and "questions" in parsed:
-                    return parsed["questions"][:question_count]
-        except Exception as ex:
-            logger.warning(f"Gemini assessment generation failed: {ex}")
+        data, model = self._call_gemini_api(payload, timeout=16)
+        if data:
+            try:
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        raw = parts[0].get("text", "").strip()
+                        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+                        parsed = json.loads(clean_json)
+                        if isinstance(parsed, list):
+                            return parsed[:question_count]
+                        elif isinstance(parsed, dict) and "questions" in parsed:
+                            return parsed["questions"][:question_count]
+            except Exception as ex:
+                logger.warning(f"Gemini assessment generation parse failed: {ex}")
 
         return []
 
@@ -803,13 +832,16 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.4, "maxOutputTokens": 400}
         }
 
-        url = f"{self.endpoint_base}/{self.DEFAULT_MODEL}:generateContent?key={self.api_key}"
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
-            if res.status_code == 200:
-                return res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except Exception as ex:
-            logger.warning(f"Gemini mistake explanation failed: {ex}")
+        data, model = self._call_gemini_api(payload, timeout=12)
+        if data:
+            try:
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        return parts[0].get("text", "").strip()
+            except Exception as ex:
+                logger.warning(f"Gemini mistake explanation parse failed: {ex}")
 
         return ""
 
@@ -1664,14 +1696,17 @@ class FocusSenseAIService:
         if local_res.get("success"):
             return local_res
 
-        return self.ollama_provider.generate_reply(
-            prompt=prompt,
-            conversation_history=conversation_history,
-            study_topic=study_topic,
-            student_name=student_name,
-            learning_context=learning_context,
-            material_context=material_context,
-        )
+        if self.ollama_provider.is_available():
+            return self.ollama_provider.generate_reply(
+                prompt=prompt,
+                conversation_history=conversation_history,
+                study_topic=study_topic,
+                student_name=student_name,
+                learning_context=learning_context,
+                material_context=material_context,
+            )
+
+        return local_res
 
     def generate_quiz(self, topic: str, conversation_history: list = None, question_count: int = 3, adaptive_guidance: str = None, material_excerpts: str = None) -> list:
         if not self.force_local:
