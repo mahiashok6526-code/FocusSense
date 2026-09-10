@@ -1524,8 +1524,7 @@
                 .replace(/>/g, "&gt;");
 
             // Code blocks
-            escaped = escaped.replace(/```([a-zA-Z0-9_-]*)
-([\s\S]*?)```/g, function(match, lang, code) {
+            escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, function(match, lang, code) {
                 return `<pre class="code-block"><code>${code.trim()}</code></pre>`;
             });
 
@@ -1548,11 +1547,8 @@
             escaped = escaped.replace(/^\s*-\s+(.*$)/gim, '<li class="md-li" style="margin-left:16px;">$1</li>');
 
             // Line breaks
-            escaped = escaped.replace(/
-
-/g, '<br/><br/>');
-            escaped = escaped.replace(/
-/g, '<br/>');
+            escaped = escaped.replace(/\n\n/g, '<br/><br/>');
+            escaped = escaped.replace(/\n/g, '<br/>');
 
             return escaped;
         }
@@ -2347,8 +2343,7 @@
                 const rowClass = isUser ? "user" : "assistant";
                 const avatar = isUser ? `<div class="msg-avatar user">👤</div>` : `<div class="msg-avatar ai">🧠</div>`;
                 const content = isUser 
-                    ? m.message.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/
-/g, "<br/>")
+                    ? m.message.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")
                     : formatMarkdown(m.message);
 
                 html += `
@@ -2395,8 +2390,7 @@
             userRow.className = "workspace-msg-row user";
             userRow.innerHTML = `
                 <div class="workspace-bubble user">
-                    <div class="bubble-body">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/
-/g, "<br/>")}</div>
+                    <div class="bubble-body">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")}</div>
                     <div class="msg-timestamp">${nowTime}</div>
                 </div>
                 <div class="msg-avatar user">👤</div>
@@ -2419,13 +2413,18 @@
                 material_id: activeMaterialId
             };
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
             fetch("/api/ai/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal
             })
             .then(res => res.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 isGenerating = false;
                 if (typingRow) typingRow.style.display = "none";
                 if (btnSend) btnSend.disabled = false;
@@ -2463,7 +2462,7 @@
                     aiRow.innerHTML = `
                         <div class="msg-avatar ai" style="background: rgba(239, 68, 68, 0.2);">⚠️</div>
                         <div class="workspace-bubble assistant" style="border-left: 3px solid #ef4444;">
-                            <div class="bubble-body">${formatMarkdown(data.reply || data.error || "FocusSense AI was unable to respond. Please check local AI server.")}</div>
+                            <div class="bubble-body">${formatMarkdown(data.reply || data.error || "FocusSense AI was unable to respond. Please try again.")}</div>
                             <div class="msg-timestamp">${nowTime}</div>
                         </div>
                     `;
@@ -2472,10 +2471,22 @@
                 }
             })
             .catch(err => {
+                clearTimeout(timeoutId);
                 isGenerating = false;
                 if (typingRow) typingRow.style.display = "none";
                 if (btnSend) btnSend.disabled = false;
                 console.error("AI Chat Error:", err);
+                const aiRow = document.createElement("div");
+                aiRow.className = "workspace-msg-row assistant";
+                aiRow.innerHTML = `
+                    <div class="msg-avatar ai" style="background: rgba(239, 68, 68, 0.2);">⚠️</div>
+                    <div class="workspace-bubble assistant" style="border-left: 3px solid #ef4444;">
+                        <div class="bubble-body">FocusSense AI request timed out or experienced a connection error. Please try again.</div>
+                        <div class="msg-timestamp">${nowTime}</div>
+                    </div>
+                `;
+                stream.appendChild(aiRow);
+                scrollToBottom();
             });
         }
 

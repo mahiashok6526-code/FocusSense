@@ -1406,6 +1406,9 @@
             }
             if (answerInput) answerInput.disabled = true;
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
             fetch("/api/recall/submit-answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1418,9 +1421,16 @@
                     points_possible: q.points_possible || 1.0,
                     topic: activeRecallTopic || (activeSession ? activeSession.topic : ""),
                     task_id: currentRecallTaskId
-                })
+                }),
+                signal: controller.signal
             })
-            .then(res => res.json())
+            .then(res => {
+                clearTimeout(timeoutId);
+                if (!res.ok) {
+                    throw new Error(`Server returned status ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
                 if (data.success) {
                     const feedbackBox = document.getElementById("recallFeedbackBox");
@@ -1448,7 +1458,7 @@
                     }
 
                     if (scoreEarned) scoreEarned.innerText = `Score: +${data.score_earned} / 1.0`;
-                    if (feedbackText) feedbackText.innerHTML = formatMarkdown(data.ai_feedback);
+                    if (feedbackText) feedbackText.innerHTML = formatMarkdown(data.ai_feedback || data.feedback || "Answer evaluated.");
 
                     if (btnNext) {
                         const isLast = currentRecallQuestionIndex >= recallQuestions.length - 1;
@@ -1467,8 +1477,10 @@
                 }
             })
             .catch(err => {
+                clearTimeout(timeoutId);
                 console.error("Answer eval error:", err);
-                showToast("Connection error submitting answer", "error");
+                const isTimeout = err.name === "AbortError";
+                showToast(isTimeout ? "Evaluation timed out. Please try submitting again." : "Connection error evaluating answer. Please try again.", "warning");
                 if (btnSubmit) {
                     btnSubmit.disabled = false;
                     btnSubmit.innerText = "Submit Answer for AI Evaluation →";

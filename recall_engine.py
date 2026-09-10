@@ -171,7 +171,7 @@ def start_recall_test(task_id: int, user_id: int, question_count: int = 3) -> di
         existing_quiz = cursor.fetchone()
         if existing_quiz:
             cursor.execute("""
-                SELECT qq.id, qq.question_index, qq.question_text, qq.sub_concept, qq.points_possible,
+                SELECT qq.id, qq.question_index, qq.question_text, qq.sub_concept, qq.sample_answer, qq.difficulty, qq.points_possible,
                        qa.student_answer, qa.evaluation_status, qa.score_earned, qa.feedback_text
                 FROM quiz_questions qq
                 LEFT JOIN quiz_answers qa ON qa.question_id = qq.id AND qa.user_id = ?
@@ -187,6 +187,8 @@ def start_recall_test(task_id: int, user_id: int, question_count: int = 3) -> di
                     "question_index": r["question_index"],
                     "question_text": r["question_text"],
                     "sub_concept": r["sub_concept"],
+                    "sample_answer": r["sample_answer"],
+                    "difficulty": r["difficulty"] if "difficulty" in r.keys() else "conceptual",
                     "points_possible": r["points_possible"],
                     "answered": r["student_answer"] is not None,
                     "student_answer": r["student_answer"] or "",

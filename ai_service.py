@@ -522,8 +522,8 @@ class GeminiAIProvider(BaseAIProvider):
     Connects securely using GEMINI_API_KEY or GOOGLE_API_KEY from environment variables.
     """
 
-    DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
-    MODELS = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
@@ -540,9 +540,10 @@ class GeminiAIProvider(BaseAIProvider):
             "active": self.is_configured(),
         }
 
-    def _call_gemini_api(self, payload: dict, timeout: int = 15) -> tuple:
+    def _call_gemini_api(self, payload: dict, timeout: float = 5.0) -> tuple:
         """
         Execute API call across candidate models (DEFAULT_MODEL + fallbacks).
+        Includes application-level responsiveness safeguards to preserve fast user experience.
         Returns (response_json_dict, successful_model_name) or (None, None).
         """
         if not self.is_configured():
@@ -561,10 +562,17 @@ class GeminiAIProvider(BaseAIProvider):
                 elif res.status_code in (404, 429):
                     logger.warning(f"Gemini model {model} returned HTTP {res.status_code}, trying next model...")
                     continue
+                elif res.status_code in (400, 403):
+                    # Key, auth, or model deprecation: log and do not stall the user experience
+                    logger.warning(f"Gemini API auth/permission issue on model {model} (HTTP {res.status_code}): {res.text[:200]}")
+                    break
                 else:
                     logger.warning(f"Gemini API error on model {model} (HTTP {res.status_code}): {res.text[:200]}")
+                    break
             except Exception as ex:
                 logger.warning(f"Gemini request exception for model {model}: {ex}")
+                # Responsiveness safeguard: avoid cumulative multi-model timeouts
+                break
 
         return None, None
 
@@ -655,7 +663,8 @@ class GeminiAIProvider(BaseAIProvider):
             }
         }
 
-        data, model = self._call_gemini_api(payload, timeout=14)
+        # Application-level responsiveness safeguard: 5.0s timeout to maintain fast UX
+        data, model = self._call_gemini_api(payload, timeout=5.0)
         if data:
             candidates = data.get("candidates", [])
             if candidates:
@@ -704,7 +713,8 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1000}
         }
 
-        data, model = self._call_gemini_api(payload, timeout=14)
+        # Application-level responsiveness safeguard: 5.0s timeout
+        data, model = self._call_gemini_api(payload, timeout=5.0)
         if data:
             try:
                 candidates = data.get("candidates", [])
@@ -743,7 +753,8 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 400}
         }
 
-        data, model = self._call_gemini_api(payload, timeout=12)
+        # Application-level responsiveness safeguard: 4.5s evaluation timeout
+        data, model = self._call_gemini_api(payload, timeout=4.5)
         if data:
             try:
                 candidates = data.get("candidates", [])
@@ -794,7 +805,8 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1500}
         }
 
-        data, model = self._call_gemini_api(payload, timeout=16)
+        # Application-level responsiveness safeguard: 6.0s timeout
+        data, model = self._call_gemini_api(payload, timeout=6.0)
         if data:
             try:
                 candidates = data.get("candidates", [])
@@ -832,7 +844,8 @@ class GeminiAIProvider(BaseAIProvider):
             "generationConfig": {"temperature": 0.4, "maxOutputTokens": 400}
         }
 
-        data, model = self._call_gemini_api(payload, timeout=12)
+        # Application-level responsiveness safeguard: 4.5s timeout
+        data, model = self._call_gemini_api(payload, timeout=4.5)
         if data:
             try:
                 candidates = data.get("candidates", [])
@@ -1014,6 +1027,25 @@ class LocalMockAIProvider(BaseAIProvider):
                 f"| **Overhead** | Minimal context switching | Higher state-tracking overhead |\n\n"
                 f"Which specific two concepts in **{topic}** are you contrasting?"
             )
+        elif any(phrase in p_lower for phrase in ["c programming", "c language", "about c", "what is c", "learn c", "explain c"]) or p_lower == "c":
+            reply = (
+                f"### 💻 C Programming Language Overview\n\n"
+                f"{previous_context}**C** is a foundational, general-purpose procedural programming language created by Dennis Ritchie in 1972 at Bell Labs. It provides low-level memory access while maintaining structured programming principles.\n\n"
+                f"#### 🔑 Core Pillars of C:\n"
+                f"1. **Compiled & Ultra-Fast**: Translates directly to native machine code via compilers (GCC, Clang, MSVC) with near-zero runtime overhead.\n"
+                f"2. **Pointers & Direct Memory Control**: Directly access and manipulate memory addresses, hardware registers, and system buffers.\n"
+                f"3. **Dynamic Memory Allocation**: Manual heap allocation via `malloc()`, `calloc()`, `realloc()`, and deallocation with `free()`.\n"
+                f"4. **Systems Software Pillar**: Serves as the bedrock for the Linux kernel, Windows, macOS, Git, Python runtimes, and embedded microcontrollers.\n\n"
+                f"#### 📝 Hello World Example in C:\n"
+                f"```c\n"
+                f"#include <stdio.h>\n\n"
+                f"int main(void) {{\n"
+                f"    printf(\"Hello from FocusSense AI!\\n\");\n"
+                f"    return 0;\n"
+                f"}}\n"
+                f"```\n\n"
+                f"What would you like to explore next? Pointers, memory allocation, structs, or functions?"
+            )
         else:
             reply = (
                 f"### 🧠 FocusSense AI: **{topic}**\n\n"
@@ -1147,6 +1179,32 @@ class LocalMockAIProvider(BaseAIProvider):
                     "question_text": "What is the key difference between preemptive and non-preemptive scheduling algorithms?",
                     "sub_concept": "Preemption Mechanism",
                     "sample_answer": "Preemptive scheduling can interrupt a currently running process when a higher-priority task arrives, whereas non-preemptive allows a process to run until it finishes or yields.",
+                    "points_possible": 1.0
+                }
+            ][:question_count]
+
+        # Domain: C Programming / Systems
+        elif any(w in t_lower for w in ["c programming", "c language", "pointer", "malloc", "struct", "memory leak"]) or t_lower == "c":
+            return [
+                {
+                    "question_index": 1,
+                    "question_text": "In C programming, what is a pointer, and how does the dereference operator (*) work?",
+                    "sub_concept": "Pointers and Dereferencing",
+                    "sample_answer": "A pointer is a variable that stores the memory address of another variable. The dereference operator (*) accesses or modifies the value stored at that memory address.",
+                    "points_possible": 1.0
+                },
+                {
+                    "question_index": 2,
+                    "question_text": "What is the difference between stack and heap memory allocation in C, and why must malloc() always be paired with free()?",
+                    "sub_concept": "Dynamic Memory Management",
+                    "sample_answer": "Stack memory is automatically managed for local variables and function frames. Heap memory is manually allocated at runtime via malloc(). Unfreed heap memory causes memory leaks.",
+                    "points_possible": 1.0
+                },
+                {
+                    "question_index": 3,
+                    "question_text": "What is the purpose of the C preprocessor and header files (#include <stdio.h>) before actual code compilation?",
+                    "sub_concept": "C Preprocessor & Header Files",
+                    "sample_answer": "The C preprocessor runs before compilation to expand macros, include header file function declarations and types, and handle conditional compilation directives.",
                     "points_possible": 1.0
                 }
             ][:question_count]
