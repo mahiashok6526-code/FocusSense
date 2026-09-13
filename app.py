@@ -1246,6 +1246,8 @@ def ai_chat():
     conn.commit()
     conn.close()
 
+    print(f"[FocusSense API] /api/ai/chat -> provider: {result.get('provider')} | fallback_used: {result.get('fallback_used', False)} | model: {result.get('model')}", flush=True)
+
     return jsonify({
         "success": True,
         "reply": reply_text,
@@ -1256,6 +1258,7 @@ def ai_chat():
         "title_updated": title_updated,
         "provider": result.get("provider", "Cohere AI"),
         "model": result.get("model", "command-a-plus-05-2026"),
+        "fallback_used": result.get("fallback_used", False),
         "material_id": material_id if (material_context and material_context.get("found")) else None,
         "material_title": material_context.get("material_title") if material_context else None,
         "grounded": bool(material_context and material_context.get("is_relevant")),

@@ -945,6 +945,20 @@ class CohereAIProvider(BaseAIProvider):
         if not self.is_configured():
             return None, None
 
+        active_key = (self.api_key or os.environ.get("COHERE_API_KEY") or "").strip()
+        if not active_key or len(active_key) <= 5:
+            return None, None
+
+        # Dynamically instantiate SDK client if not previously initialized
+        if self.client is None and cohere:
+            try:
+                self.client = cohere.ClientV2(api_key=active_key)
+            except Exception:
+                try:
+                    self.client = cohere.Client(api_key=active_key)
+                except Exception:
+                    self.client = None
+
         candidates = [self.model] + [m for m in self.MODELS if m != self.model]
         seen = set()
         models_to_try = [m for m in candidates if not (m in seen or seen.add(m))]
@@ -974,7 +988,7 @@ class CohereAIProvider(BaseAIProvider):
             if requests:
                 try:
                     headers = {
-                        "Authorization": f"Bearer {self.api_key}",
+                        "Authorization": f"Bearer {active_key}",
                         "Content-Type": "application/json",
                         "Accept": "application/json",
                     }
@@ -2161,6 +2175,8 @@ class FocusSenseAIService:
                 )
                 if result and result.get("success") and result.get("reply"):
                     result["fallback_used"] = False
+                    logger.info(f"AI provider selected: Cohere AI | fallback_used: false | model: {result.get('model')}")
+                    print(f"[FocusSense AI] AI provider selected: Cohere AI | fallback_used: false | model: {result.get('model')}", flush=True)
                     return result
             except Exception as ex:
                 logger.warning(f"Cohere chat reply failed, falling back to local provider: {ex}")
@@ -2175,6 +2191,8 @@ class FocusSenseAIService:
             material_context=material_context,
         )
         res["fallback_used"] = True
+        logger.info(f"AI provider selected: FocusSense Local AI | fallback_used: true | model: {res.get('model')}")
+        print(f"[FocusSense AI] AI provider selected: FocusSense Local AI | fallback_used: true | model: {res.get('model')}", flush=True)
         return res
 
     def generate_quiz(self, topic: str, conversation_history: list = None, question_count: int = 3,
